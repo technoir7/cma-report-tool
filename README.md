@@ -46,7 +46,8 @@ Your Notes → AI Parser → Search Database → Math Calculations → AI Writer
 ```
 
 **Step 1: Parse Notes**
-You write something like: *"3 bed 2 bath house in Denver CO 80202, about 1800 sqft"*
+You write something like: *"3 bed 2 bath house in Denver CO, about 1800 sqft"*
+(Specific street address is optimal but NOT required - City/State is enough!)
 
 The AI reads this and understands:
 - Location: Denver, CO 80202

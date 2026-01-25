@@ -17,6 +17,9 @@
 
 ### Fixed
 - **Dataclass Runtime Error**: Reordered fields in `ProvenanceRecord` (`audit/provenance.py`) to ensure non-default arguments follow default arguments, resolving the uvicorn startup failure on Python 3.12.
+- **Address Validation Loop**: Fixed critical validation errors where City-only inputs caused crashes. Relaxed `IntentIR` and `AddressInfo` schemas to accept empty strings for street/zip.
+- **Mock Data Type Error**: Fixed runtime crash where integer zip codes from mock CSVs caused Pydantic validation failures. Added explicit type casting in `app/main.py`.
+- **Hallucination False Positives**: Updated `allowed_values` logic to whitelist numeric zip codes and transaction years, preventing valid reports from being rejected as hallucinations.
 
 ---
 
