@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - LLM_PROVIDER=mock
+      - LLM_API_BASE=http://localhost:11434
+      - DATA_SOURCE=csv
+      - RESO_MOCK_URL=http://reso-mock:8080
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data:ro
+    depends_on:
+      - reso-mock
+    networks:
+      - cma-network
+
+  reso-mock:
+    image: reso/web-api-commander:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - MOCK_MODE=true
+    networks:
+      - cma-network
+    # Note: In production, replace with actual RESO reference server
+    # For MVP, we use a simple mock that returns static data
+
+networks:
+  cma-network:
+    driver: bridge

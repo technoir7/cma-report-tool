@@ -1,0 +1,25 @@
+Sample Realtor Notes for CMA Testing
+=====================================
+
+Example 1: Basic Request
+------------------------
+3 bed 2 bath ranch in Denver CO 80202, built 2015, about 1800 sqft. Looking for recent sales within a mile.
+
+Example 2: Detailed Request
+---------------------------
+Need comps for 456 Oak Avenue, Austin TX 78701. It's a 4 bedroom, 3 bath condo with 2200 square feet.
+Has a pool. Looking for sales under $600k from the past year. Similar sized homes only.
+
+Example 3: Minimal Information
+------------------------------
+Single family home in 80202 zip code, Denver Colorado. 3 bedrooms.
+
+Example 4: With Price Range
+---------------------------
+Townhouse at 789 Pine Street, Seattle WA 98101. 2 bed 2.5 bath, approximately 1500 sf.
+Year built around 2018. Price range should be $450k to $550k. Need comps from last 6 months.
+
+Example 5: Vague Description
+----------------------------
+Nice house in the Denver area, maybe 3-4 bedrooms. Built sometime in the 2010s. 
+Around 2000 square feet give or take. Probably worth somewhere around $500k.

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comparative Market Analysis - {{ subject.address.street }}</title>
+    <style>
+        :root {
+            --primary-color: #1a365d;
+            --secondary-color: #2c5282;
+            --accent-color: #4299e1;
+            --text-color: #2d3748;
+            --bg-color: #f7fafc;
+            --border-color: #e2e8f0;
+            --success-color: #48bb78;
+            --warning-color: #ed8936;
+            --danger-color: #f56565;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+        
+        header h1 {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        header .subtitle {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        header .report-meta {
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            opacity: 0.8;
+        }
+        
+        section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        section h2 {
+            color: var(--primary-color);
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--accent-color);
+        }
+        
+        .property-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .property-item {
+            padding: 0.75rem;
+            background: var(--bg-color);
+            border-radius: 4px;
+        }
+        
+        .property-item label {
+            font-size: 0.75rem;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .property-item .value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            background: var(--bg-color);
+            font-weight: 600;
+            color: var(--primary-color);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        tr:hover {
+            background: #f1f5f9;
+        }
+        
+        .price {
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+        
+        .adjustment-positive {
+            color: var(--success-color);
+        }
+        
+        .adjustment-negative {
+            color: var(--danger-color);
+        }
+        
+        .value-box {
+            background: linear-gradient(135deg, var(--accent-color), var(--secondary-color));
+            color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        
+        .value-box .label {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+        }
+        
+        .value-box .amount {
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        
+        .value-box .range {
+            font-size: 1rem;
+            opacity: 0.9;
+            margin-top: 0.5rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+        
+        .stat-card {
+            background: var(--bg-color);
+            padding: 1rem;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .stat-card .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--secondary-color);
+        }
+        
+        .stat-card .stat-label {
+            font-size: 0.75rem;
+            color: #718096;
+            text-transform: uppercase;
+        }
+        
+        .confidence-meter {
+            height: 8px;
+            background: var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+        
+        .confidence-meter .fill {
+            height: 100%;
+            background: var(--accent-color);
+            border-radius: 4px;
+        }
+        
+        .limitation {
+            padding: 0.75rem;
+            border-left: 4px solid;
+            margin-bottom: 0.5rem;
+            background: var(--bg-color);
+        }
+        
+        .limitation.info {
+            border-color: var(--accent-color);
+        }
+        
+        .limitation.warning {
+            border-color: var(--warning-color);
+        }
+        
+        .limitation.critical {
+            border-color: var(--danger-color);
+        }
+        
+        .narrative {
+            padding: 1rem;
+            background: var(--bg-color);
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        
+        .outlier-badge {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            background: var(--warning-color);
+            color: white;
+            font-size: 0.75rem;
+            border-radius: 999px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #718096;
+            font-size: 0.875rem;
+        }
+        
+        @media print {
+            body {
+                background: white;
+            }
+            .container {
+                max-width: 100%;
+            }
+            section {
+                break-inside: avoid;
+                box-shadow: none;
+                border: 1px solid var(--border-color);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Comparative Market Analysis</h1>
+            <div class="subtitle">{{ subject.address.street }}, {{ subject.address.city }}, {{ subject.address.state }} {{ subject.address.zip_code }}</div>
+            <div class="report-meta">
+                Report ID: {{ report_id }} | Generated: {{ generated_at.strftime('%B %d, %Y at %I:%M %p') }}
+            </div>
+        </header>
+        
+        <section>
+            <h2>Subject Property</h2>
+            <div class="property-grid">
+                <div class="property-item">
+                    <label>Property Type</label>
+                    <div class="value">{{ subject.characteristics.property_type }}</div>
+                </div>
+                {% if subject.characteristics.bedrooms %}
+                <div class="property-item">
+                    <label>Bedrooms</label>
+                    <div class="value">{{ subject.characteristics.bedrooms }}</div>
+                </div>
+                {% endif %}
+                {% if subject.characteristics.bathrooms %}
+                <div class="property-item">
+                    <label>Bathrooms</label>
+                    <div class="value">{{ subject.characteristics.bathrooms }}</div>
+                </div>
+                {% endif %}
+                {% if subject.characteristics.living_area_sqft %}
+                <div class="property-item">
+                    <label>Living Area</label>
+                    <div class="value">{{ "{:,}".format(subject.characteristics.living_area_sqft) }} sq ft</div>
+                </div>
+                {% endif %}
+                {% if subject.characteristics.lot_size_sqft %}
+                <div class="property-item">
+                    <label>Lot Size</label>
+                    <div class="value">{{ "{:,}".format(subject.characteristics.lot_size_sqft) }} sq ft</div>
+                </div>
+                {% endif %}
+                {% if subject.characteristics.year_built %}
+                <div class="property-item">
+                    <label>Year Built</label>
+                    <div class="value">{{ subject.characteristics.year_built }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </section>
+        
+        <section>
+            <h2>Indicated Value</h2>
+            <div class="value-box">
+                <div class="label">Estimated Market Value</div>
+                <div class="amount">${{ "{:,.0f}".format(analytics.indicated_value) }}</div>
+                <div class="range">Range: ${{ "{:,.0f}".format(analytics.value_range_low) }} - ${{ "{:,.0f}".format(analytics.value_range_high) }}</div>
+            </div>
+            <div style="max-width: 400px; margin: 0 auto;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.875rem; color: #718096;">
+                    <span>Confidence Score</span>
+                    <span>{{ analytics.confidence_score }}/100</span>
+                </div>
+                <div class="confidence-meter">
+                    <div class="fill" style="width: {{ analytics.confidence_score }}%;"></div>
+                </div>
+            </div>
+        </section>
+        
+        <section>
+            <h2>Comparable Sales ({{ selected_comps|length }} Properties)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Address</th>
+                        <th>Close Date</th>
+                        <th>Close Price</th>
+                        <th>Sq Ft</th>
+                        <th>$/Sq Ft</th>
+                        <th>Distance</th>
+                        <th>Score</th>
+                        <th>Adjusted Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for comp in selected_comps %}
+                    <tr>
+                        <td>
+                            {{ comp.address.street }}
+                            {% if comp.is_outlier %}
+                            <span class="outlier-badge">Outlier</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ comp.sale_info.close_date.strftime('%m/%d/%Y') }}</td>
+                        <td class="price">${{ "{:,.0f}".format(comp.sale_info.close_price) }}</td>
+                        <td>{{ "{:,}".format(comp.characteristics.living_area_sqft) if comp.characteristics.living_area_sqft else 'N/A' }}</td>
+                        <td>${{ "{:,.2f}".format(comp.price_per_sqft) if comp.price_per_sqft else 'N/A' }}</td>
+                        <td>{{ "{:.2f}".format(comp.distance_miles) }} mi</td>
+                        <td>{{ "{:.0f}".format(comp.similarity_score) }}</td>
+                        <td class="price">${{ "{:,.0f}".format(comp.adjusted_price) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+        
+        <section>
+            <h2>Market Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">${{ "{:,.0f}".format(analytics.median_price) }}</div>
+                    <div class="stat-label">Median Price</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${{ "{:,.0f}".format(analytics.mean_price) }}</div>
+                    <div class="stat-label">Mean Price</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${{ "{:,.2f}".format(analytics.median_price_per_sqft) }}</div>
+                    <div class="stat-label">Median $/Sq Ft</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ "{:.0f}".format(analytics.avg_days_on_market) }}</div>
+                    <div class="stat-label">Avg Days on Market</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ analytics.total_comps_analyzed }}</div>
+                    <div class="stat-label">Comps Analyzed</div>
+                </div>
+                {% if analytics.outliers_excluded > 0 %}
+                <div class="stat-card">
+                    <div class="stat-value">{{ analytics.outliers_excluded }}</div>
+                    <div class="stat-label">Outliers Flagged</div>
+                </div>
+                {% endif %}
+            </div>
+        </section>
+        
+        {% if narrative %}
+        <section>
+            <h2>Analysis Narrative</h2>
+            <div class="narrative">{{ narrative }}</div>
+        </section>
+        {% endif %}
+        
+        {% if limitations %}
+        <section>
+            <h2>Data Limitations</h2>
+            {% for limitation in limitations %}
+            <div class="limitation {{ limitation.severity }}">
+                <strong>{{ limitation.category|replace('_', ' ')|title }}:</strong> {{ limitation.description }}
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
+        
+        <footer>
+            <p>This Comparative Market Analysis was generated automatically and should be reviewed by a licensed real estate professional.</p>
+            <p>Report ID: {{ report_id }} | Data Source: {{ data_source or 'Not specified' }}</p>
+            <p style="margin-top: 1rem; font-size: 0.75rem;">
+                All values in this report are derived from the provided data. Any numeric value in the narrative
+                has been verified against the source data to prevent hallucination.
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
