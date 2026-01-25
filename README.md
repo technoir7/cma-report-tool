@@ -36,8 +36,8 @@ The server starts at `http://localhost:8000`
 
 ### 3. Try It Out
 
-- **Web UI**: Open your browser to `http://localhost:8000/ui` to use the interactive notes-only interface.
-- **Interactive docs**: Go to `http://localhost:8000/docs` to see the full API.
+- **Web Interface (Frontend)**: Open your browser to `http://localhost:8000/ui`. The frontend is integrated directly into the server—no separate build or run step is required.
+- **Interactive API Docs**: Go to `http://localhost:8000/docs` to see the full API.
 
 ## How It Works (Simple Version)
 
