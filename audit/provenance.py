@@ -50,11 +50,11 @@ class ProvenanceRecord:
     provenance record that traces its origin.
     """
     
-    # Unique identifier for this provenance record
-    provenance_id: str = field(default_factory=lambda: str(uuid4()))
-    
     # The value being tracked
     value: Decimal | int | float | str | datetime
+    
+    # Unique identifier for this provenance record
+    provenance_id: str = field(default_factory=lambda: str(uuid4()))
     
     # Type of provenance
     provenance_type: ProvenanceType = ProvenanceType.RAW_VALUE

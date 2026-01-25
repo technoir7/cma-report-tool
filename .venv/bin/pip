@@ -1,4 +1,4 @@
-#!/home/aaron/code/intent_compiler/cma_compiler/.venv/bin/python3
+#!/home/aaron/code/cma-report-tool/.venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys
