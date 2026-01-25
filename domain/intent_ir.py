@@ -22,31 +22,31 @@ class IntentIR(BaseModel):
     ValidationError and must not be silently corrected.
     """
     
-    # Subject property identification (required)
-    subject_address: str = Field(
-        ...,
-        min_length=5,
+    # Subject property identification (optional - notes may not include full address)
+    subject_address: str | None = Field(
+        default=None,
+        min_length=0,  # Changed from 5 to allow empty strings
         max_length=200,
         description="Street address of subject property"
     )
-    subject_city: str = Field(
-        ...,
-        min_length=2,
+    subject_city: str | None = Field(
+        default=None,
+        min_length=0,  # Changed from 2 to allow empty strings
         max_length=100,
         description="City of subject property"
     )
-    subject_state: str = Field(
-        ...,
-        min_length=2,
+    subject_state: str | None = Field(
+        default=None,
+        min_length=0,  # Changed from 2 to allow empty strings
         max_length=2,
-        pattern=r"^[A-Z]{2}$",
+        pattern=r"^([A-Z]{2})?$",  # Optional pattern (empty or 2 uppercase)
         description="Two-letter state code (uppercase)"
     )
-    subject_zip: str = Field(
-        ...,
-        min_length=5,
+    subject_zip: str | None = Field(
+        default=None,
+        min_length=0,  # Changed from 5 to allow empty strings
         max_length=10,
-        pattern=r"^\d{5}(-\d{4})?$",
+        pattern=r"^(\d{5}(-\d{4})?)?$",  # Optional pattern (empty or zip)
         description="ZIP code (5-digit or ZIP+4)"
     )
     
@@ -108,7 +108,7 @@ class IntentIR(BaseModel):
         description="Maximum price filter"
     )
     sqft_tolerance_pct: float = Field(
-        default=0.2,
+        default=0.15,
         ge=0.0,
         le=0.5,
         description="Square footage tolerance percentage (0-0.5)"
@@ -129,8 +129,10 @@ class IntentIR(BaseModel):
     
     @field_validator("subject_state")
     @classmethod
-    def validate_state_uppercase(cls, v: str) -> str:
-        """Ensure state code is uppercase."""
+    def validate_state_uppercase(cls, v: str | None) -> str | None:
+        """Ensure state code is uppercase if provided."""
+        if v is None:
+            return None
         return v.upper()
     
     @field_validator("special_features")
@@ -149,6 +151,33 @@ class IntentIR(BaseModel):
             if self.price_range_min > self.price_range_max:
                 raise ValueError("price_range_min must be <= price_range_max")
         return self
+    
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_defaults(cls, values: dict) -> dict:
+        """Ensure fields with defaults have valid values if missing, null, or out of range."""
+        if isinstance(values, dict):
+            # sqft_tolerance_pct: default 0.15, clamp to [0.0, 0.5]
+            sqft_tol = values.get("sqft_tolerance_pct")
+            if sqft_tol is None:
+                values["sqft_tolerance_pct"] = 0.15
+            elif isinstance(sqft_tol, (int, float)):
+                values["sqft_tolerance_pct"] = max(0.0, min(0.5, sqft_tol))
+            
+            # max_age_years: default 1, clamp to [0, 5]
+            max_age = values.get("max_age_years")
+            if max_age is None:
+                values["max_age_years"] = 1
+            elif isinstance(max_age, int):
+                values["max_age_years"] = max(0, min(5, max_age))
+            
+            # search_radius_miles: default 1.0, clamp to [0.1, 5.0]
+            radius = values.get("search_radius_miles")
+            if radius is None:
+                values["search_radius_miles"] = 1.0
+            elif isinstance(radius, (int, float)):
+                values["search_radius_miles"] = max(0.1, min(5.0, radius))
+        return values
     
     def get_sqft_range(self) -> tuple[int | None, int | None]:
         """Calculate sqft search range based on subject and tolerance."""

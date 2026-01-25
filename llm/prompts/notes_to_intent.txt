@@ -9,10 +9,10 @@ CRITICAL RULES:
 
 SCHEMA:
 {
-  "subject_address": string (required, 5-200 chars),
-  "subject_city": string (required, 2-100 chars),
-  "subject_state": string (required, exactly 2 uppercase letters),
-  "subject_zip": string (required, format: "12345" or "12345-6789"),
+  "subject_address": string (required, use "" if unknown),
+  "subject_city": string (required, use "" if unknown),
+  "subject_state": string (required, 2 uppercase letters, use "" if unknown),
+  "subject_zip": string (required, use "" if unknown),
   "subject_beds": integer | null (0-20),
   "subject_baths": number | null (0-15, can be decimal like 2.5),
   "subject_sqft": integer | null (100-50000),
@@ -42,14 +42,15 @@ CONVERSION RULES:
 - "sold in last 6 months" -> max_age_years: 1
 - "recent sales" -> max_age_years: 1
 - "pool" or "swimming pool" -> special_features: ["pool"]
-- Unclear or missing -> null
+- Unclear text fields -> "" (empty string)
+- Unclear numeric fields -> null
 
 EXAMPLES:
 
 Input: "3 bed 2 bath ranch in Denver CO 80202, built 2015, about 1800 sqft"
 Output:
 {
-  "subject_address": "Unknown - address not specified",
+  "subject_address": "",
   "subject_city": "Denver",
   "subject_state": "CO",
   "subject_zip": "80202",

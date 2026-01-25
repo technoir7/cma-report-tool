@@ -1,0 +1,34 @@
+INFO:     Will watch for changes in these directories: ['/home/aaron/code/cma-report-tool']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [58572] using WatchFiles
+INFO:     Started server process [58574]
+INFO:     Waiting for application startup.
+INFO:app.main:Starting CMA Compiler...
+INFO:llm.client:Initializing LLM client: ollama
+INFO:app.main:LLM client initialized: ollama
+INFO:app.main:CSV connector initialized: data/mock_listings.csv
+INFO:     Application startup complete.
+INFO:audit.audit_log:AUDIT: notes_received | b99c57bd-cc44-489b-b485-8fa81e1ba998 | {'notes_length': 265, 'session_id': '26bc6687-62b0-4a0a-99ee-dad103878555'}
+INFO:httpx:HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+INFO:llm.notes_parser:Successfully parsed notes into IntentIR: Denver, CO
+INFO:audit.audit_log:AUDIT: intent_parsed | b99c57bd-cc44-489b-b485-8fa81e1ba998 | {'city': 'Denver', 'state': 'CO'}
+INFO:app.main:Building query plan...
+INFO:app.main:Query plan built with 9 filters
+INFO:app.main:Executing search...
+INFO:app.main:Search returned 20 records
+INFO:app.main:Selected 20 comps
+INFO:httpx:HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+INFO:llm.report_writer:Report generated and verified successfully
+INFO:     127.0.0.1:38510 - "POST /ui/generate HTTP/1.1" 200 OK
+INFO:audit.audit_log:AUDIT: notes_received | 945d40fe-28b8-47bf-8253-b145972dcb82 | {'notes_length': 341, 'session_id': 'cb6d8ccb-cb43-4a58-8d4d-ff8b2ada47e7'}
+INFO:httpx:HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+INFO:llm.notes_parser:Successfully parsed notes into IntentIR: Denver, CO
+INFO:audit.audit_log:AUDIT: intent_parsed | 945d40fe-28b8-47bf-8253-b145972dcb82 | {'city': 'Denver', 'state': 'CO'}
+INFO:app.main:Building query plan...
+INFO:app.main:Query plan built with 9 filters
+INFO:app.main:Executing search...
+INFO:app.main:Search returned 20 records
+INFO:app.main:Selected 20 comps
+INFO:httpx:HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+INFO:llm.report_writer:Report generated and verified successfully
+INFO:     127.0.0.1:34430 - "POST /ui/generate HTTP/1.1" 200 OK

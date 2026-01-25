@@ -14,6 +14,7 @@ must be represented as null in the output.
 
 import json
 import logging
+import re
 from pathlib import Path
 
 from domain.intent_ir import IntentIR, IntentValidationError
@@ -105,7 +106,9 @@ Notes:
         
         # Extract JSON from response
         raw_output = response.content.strip()
+        logger.debug(f"Raw LLM output:\n{raw_output}")
         json_str = self._extract_json(raw_output)
+        logger.debug(f"Extracted JSON:\n{json_str}")
         
         if not json_str:
             raise NotesParseError(
@@ -113,17 +116,36 @@ Notes:
                 raw_output=raw_output
             )
         
+        # Attempt to repair common JSON issues
+        json_str = self._repair_json(json_str)
+        
         # Parse JSON
         try:
             data = json.loads(json_str)
         except json.JSONDecodeError as e:
-            raise NotesParseError(
-                f"Invalid JSON in LLM output: {e}",
-                raw_output=raw_output
-            )
+            logger.warning(f"JSON parse failed, attempting aggressive repair: {e}")
+            # Try aggressive repair
+            json_str = self._aggressive_repair_json(json_str)
+            try:
+                data = json.loads(json_str)
+            except json.JSONDecodeError as e2:
+                # Log the full output for debugging
+                logger.error(f"=== RAW LLM OUTPUT ===\n{raw_output}\n=== END RAW OUTPUT ===")
+                logger.error(f"=== REPAIRED JSON ===\n{json_str}\n=== END REPAIRED JSON ===")
+                raise NotesParseError(
+                    f"Invalid JSON in LLM output: {e2}",
+                    raw_output=raw_output
+                )
         
         # Validate against schema
         try:
+            # Normalize nulls to empty strings for required string fields
+            # This ensures robustness even if LLM returns null
+            if isinstance(data, dict):
+                for field in ["subject_address", "subject_city", "subject_state", "subject_zip"]:
+                    if data.get(field) is None:
+                        data[field] = ""
+            
             intent = IntentIR.model_validate(data)
         except Exception as e:
             raise NotesParseError(
@@ -133,6 +155,74 @@ Notes:
         
         logger.info(f"Successfully parsed notes into IntentIR: {intent.subject_city}, {intent.subject_state}")
         return intent
+    
+    def _repair_json(self, json_str: str) -> str:
+        """
+        Repair common JSON syntax errors from LLM output.
+        
+        Handles:
+        - Trailing commas before } or ]
+        - Single quotes instead of double quotes
+        - Unquoted property names
+        - Comments
+        - Unquoted decade values like 1940s
+        - 'Unknown - ...' placeholder strings -> null
+        """
+        # Remove single-line comments
+        json_str = re.sub(r'//.*$', '', json_str, flags=re.MULTILINE)
+        
+        # Remove multi-line comments
+        json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
+        
+        # Fix unquoted decade values like 1940s -> null (can't determine exact year)
+        json_str = re.sub(r':\s*(\d{4})s\s*([,}\]])', r': null\2', json_str)
+        
+        # Convert "Unknown - ..." placeholder strings to null
+        json_str = re.sub(r'"Unknown\s*-[^"]*"', 'null', json_str)
+        
+        # Remove trailing commas before } or ]
+        json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
+        
+        return json_str.strip()
+    
+    def _aggressive_repair_json(self, json_str: str) -> str:
+        """
+        More aggressive JSON repair for stubborn cases.
+        
+        Handles:
+        - Missing commas between properties
+        - Unquoted string values
+        - Extra text after JSON
+        """
+        # First apply basic repairs
+        json_str = self._repair_json(json_str)
+        
+        # Try to fix missing commas between properties (common LLM error)
+        # Pattern: "value"\n  " -> "value",\n  "
+        json_str = re.sub(r'"\s*\n\s*"', '",\n  "', json_str)
+        
+        # Pattern: null\n  " -> null,\n  "
+        json_str = re.sub(r'(null|true|false|\d+)\s*\n\s*"', r'\1,\n  "', json_str)
+        
+        # Pattern: ]\n  " -> ],\n  "
+        json_str = re.sub(r'\]\s*\n\s*"', '],\n  "', json_str)
+        
+        # Remove any trailing content after the JSON object
+        depth = 0
+        end_pos = -1
+        for i, char in enumerate(json_str):
+            if char == '{':
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0:
+                    end_pos = i + 1
+                    break
+        
+        if end_pos > 0:
+            json_str = json_str[:end_pos]
+        
+        return json_str.strip()
     
     def _extract_json(self, text: str) -> str | None:
         """

@@ -244,19 +244,21 @@ class QueryPlanBuilder:
         # Build filters
         filters = []
         
-        # City filter
-        filters.append(FilterCondition(
-            field="City",
-            operator=FilterOperator.EQ,
-            value=intent.subject_city
-        ))
+        # City filter (only if specified)
+        if intent.subject_city:
+            filters.append(FilterCondition(
+                field="City",
+                operator=FilterOperator.EQ,
+                value=intent.subject_city
+            ))
         
-        # State filter
-        filters.append(FilterCondition(
-            field="StateOrProvince",
-            operator=FilterOperator.EQ,
-            value=intent.subject_state
-        ))
+        # State filter (only if specified)
+        if intent.subject_state:
+            filters.append(FilterCondition(
+                field="StateOrProvince",
+                operator=FilterOperator.EQ,
+                value=intent.subject_state
+            ))
         
         # Status filter (closed sales only)
         filters.append(FilterCondition(

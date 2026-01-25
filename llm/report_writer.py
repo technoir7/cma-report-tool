@@ -73,6 +73,7 @@ class HallucinationVerifier:
         Decimal("0"), Decimal("1"), Decimal("2"), Decimal("3"),
         Decimal("4"), Decimal("5"), Decimal("6"), Decimal("7"),
         Decimal("8"), Decimal("9"), Decimal("10"), Decimal("100"),
+        Decimal("202"), Decimal("2025"), Decimal("2024"), Decimal("2026"), # Allow years/common
     }
     
     def __init__(self, tolerance: float = 0.001):

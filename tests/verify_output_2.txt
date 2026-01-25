@@ -1,3 +1,8 @@
+Testing POST to http://localhost:8000/ui/generate with test note...
+Response Status: 200
+FAILURE: Did not find 'CMA Report - Generated' in response.
+Could not find specific error message in HTML.
+Response output dump:
 <!DOCTYPE html>
 <html lang="en">
 
@@ -22,7 +27,7 @@
             <p class="text-gray-600">Generate compliance-safe CMA reports from your notes</p>
         </div>
 
-        {% if error %}
+        
         <!-- Error Alert -->
         <div class="mb-6 rounded-lg bg-red-50 p-4 border border-red-200">
             <div class="flex">
@@ -32,11 +37,14 @@
                         clip-rule="evenodd" />
                 </svg>
                 <div class="ml-3">
-                    <p class="text-sm text-red-700">{{ error }}</p>
+                    <p class="text-sm text-red-700">Generation failed: 1 validation error for AddressInfo
+zip_code
+  Input should be a valid string [type=string_type, input_value=80202, input_type=int]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type</p>
                 </div>
             </div>
         </div>
-        {% endif %}
+        
 
         <!-- Main Form -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -52,7 +60,7 @@
                         <textarea id="notes" name="notes" rows="12"
                             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-4 border bg-gray-50 font-mono text-gray-800"
                             placeholder="Paste your property notes here (e.g., 'Looking for 3 bed/2 bath in Denver...')"
-                            required minlength="10">{{ notes or '' }}</textarea>
+                            required minlength="10"></textarea>
                     </div>
 
                     <div class="flex items-center justify-between pt-2">

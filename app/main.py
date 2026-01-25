@@ -348,14 +348,37 @@ async def ui_generate(request: Request, notes: str = Form(...)):
         intent = parser.parse(notes)
         audit(AuditAction.INTENT_PARSED, {"city": intent.subject_city, "state": intent.subject_state})
         
+        # Check for missing critical info
+        missing_fields = []
+        if not intent.subject_city:
+            missing_fields.append("city")
+        if not intent.subject_state:
+            missing_fields.append("state")
+        
+        if missing_fields:
+            missing_str = ", ".join(missing_fields)
+            return templates.TemplateResponse(
+                "index.html", 
+                {
+                    "request": request, 
+                    "error": f"Could not extract location information ({missing_str}) from your notes. Please include a city and state (e.g., 'Denver, CO' or 'Austin, TX 78701').",
+                    "notes": notes  # Preserve their input
+                }
+            )
+        
         # 2. Search Candidates
+        logger.info(f"Building query plan...")
         query_plan = QueryPlanBuilder.from_intent(intent)
+        logger.info(f"Query plan built with {len(query_plan.filters)} filters")
+        logger.info(f"Executing search...")
         result: SearchResult = state.connector.search(query_plan, max_tier=FieldTier.SAFE)
+        logger.info(f"Search returned {len(result.records)} records")
         candidates = [r.raw_data for r in result.records]
         
         # 3. Select Comps (Auto-select top N)
         # In a real app, we'd rank them. Here we just take the first few
         selected = candidates[:settings.max_selected_comps]
+        logger.info(f"Selected {len(selected)} comps")
         if not selected:
              return templates.TemplateResponse(
                 "index.html", 
@@ -366,10 +389,10 @@ async def ui_generate(request: Request, notes: str = Form(...)):
         # Build subject property
         subject = SubjectProperty(
             address=AddressInfo(
-                street=intent.subject_address,
-                city=intent.subject_city,
-                state=intent.subject_state,
-                zip_code=intent.subject_zip
+                street=str(intent.subject_address) if intent.subject_address else "",
+                city=str(intent.subject_city) if intent.subject_city else "",
+                state=str(intent.subject_state) if intent.subject_state else "",
+                zip_code=str(intent.subject_zip) if intent.subject_zip else ""
             ),
             characteristics=PropertyCharacteristics(
                 property_type=intent.property_type or "Residential",
@@ -422,9 +445,9 @@ async def ui_generate(request: Request, notes: str = Form(...)):
                 listing_id=raw.get("ListingId", str(uuid4())),
                 address=AddressInfo(
                     street=f"{raw.get('ListingId', 'Unknown')} Street",
-                    city=raw.get("City", "Unknown"),
-                    state=raw.get("StateOrProvince", "XX"),
-                    zip_code=raw.get("PostalCode", "00000")
+                    city=str(raw.get("City", "Unknown")),
+                    state=str(raw.get("StateOrProvince", "XX")),
+                    zip_code=str(raw.get("PostalCode", "00000"))
                 ),
                 characteristics=PropertyCharacteristics(
                     property_type=raw.get("PropertyType", "Residential"),
@@ -794,13 +817,17 @@ async def generate_report(request: GenerateReportRequest):
                 subject_data, raw, float(distance), days_since
             )
             
+            # Debug types
+            zip_val = raw.get("PostalCode")
+            logger.info(f"DEBUG: PostalCode type: {type(zip_val)} value: {zip_val}")
+            
             comp = CompProperty(
                 listing_id=raw.get("ListingId", str(uuid4())),
                 address=AddressInfo(
                     street=f"{raw.get('ListingId', 'Unknown')} Street",
-                    city=raw.get("City", "Unknown"),
-                    state=raw.get("StateOrProvince", "XX"),
-                    zip_code=raw.get("PostalCode", "00000")
+                    city=str(raw.get("City", "Unknown")),
+                    state=str(raw.get("StateOrProvince", "XX")),
+                    zip_code=str(raw.get("PostalCode", "00000"))
                 ),
                 characteristics=PropertyCharacteristics(
                     property_type=raw.get("PropertyType", "Residential"),

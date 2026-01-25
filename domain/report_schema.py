@@ -21,13 +21,24 @@ from pydantic import BaseModel, Field, computed_field, model_validator
 class AddressInfo(BaseModel):
     """Standardized address representation."""
     
-    street: str
-    city: str
-    state: str = Field(min_length=2, max_length=2)
-    zip_code: str
+    street: str = ""
+    city: str = ""
+    state: str = ""  # Relaxed from min_length=2 to allow empty string if unknown
+    zip_code: str = ""
     county: str | None = None
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
+    
+    def get_numeric_values(self) -> set[Decimal]:
+        """Extract numeric values (like zip) for hallucination check."""
+        values = set()
+        if self.zip_code and self.zip_code.isdigit():
+            values.add(Decimal(self.zip_code))
+        if self.latitude is not None:
+             values.add(Decimal(str(self.latitude)))
+        if self.longitude is not None:
+             values.add(Decimal(str(self.longitude)))
+        return values
 
 
 class PropertyCharacteristics(BaseModel):
@@ -81,10 +92,7 @@ class SubjectProperty(BaseModel):
             values.add(self.value_range_low)
         if self.value_range_high is not None:
             values.add(self.value_range_high)
-        if self.address.latitude is not None:
-            values.add(Decimal(str(self.address.latitude)))
-        if self.address.longitude is not None:
-            values.add(Decimal(str(self.address.longitude)))
+        values.update(self.address.get_numeric_values())
         return values
 
 
@@ -99,6 +107,7 @@ class SaleInfo(BaseModel):
     def get_numeric_values(self) -> set[Decimal]:
         """Extract all numeric values for hallucination check."""
         values = {self.close_price}
+        values.add(Decimal(str(self.close_date.year)))
         if self.original_list_price is not None:
             values.add(self.original_list_price)
         if self.days_on_market is not None:
@@ -163,10 +172,7 @@ class CompProperty(BaseModel):
         for adj in self.adjustments:
             values.update(adj.get_numeric_values())
         
-        if self.address.latitude is not None:
-            values.add(Decimal(str(self.address.latitude)))
-        if self.address.longitude is not None:
-            values.add(Decimal(str(self.address.longitude)))
+        values.update(self.address.get_numeric_values())
         
         return values
 
