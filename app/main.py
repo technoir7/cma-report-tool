@@ -21,8 +21,9 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Response
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Response, Request, Form
+from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from app.settings import settings, DataSource
@@ -68,6 +69,7 @@ class AppState:
 
 
 state = AppState()
+templates = Jinja2Templates(directory="renderer/templates")
 
 
 @asynccontextmanager
@@ -300,16 +302,228 @@ class GenerateReportResponse(BaseModel):
 # Endpoints
 # ============================================================================
 
+@app.get("/")
+async def root():
+    """Root endpoint for service information."""
+    return {
+        "name": "CMA Compiler",
+        "status": "active",
+        "docs_url": "/docs",
+        "openapi_url": "/openapi.json"
+    }
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    connector_healthy = state.connector.health_check() if state.connector else False
-    return {
-        "status": "healthy",
-        "connector": connector_healthy,
-        "llm_provider": settings.llm_provider.value,
-        "data_source": settings.data_source.value,
-    }
+    return {"status": "ok"}
+
+
+@app.get("/ui")
+async def ui_index(request: Request):
+    """Render the main UI page."""
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/ui/sample", response_class=PlainTextResponse)
+async def ui_sample():
+    """Return sample notes for the UI."""
+    try:
+        with open("data/sample_notes.txt", "r") as f:
+            return f.read()
+    except FileNotFoundError:
+        return "Looking for a 3 bedroom, 2 bathroom house in Denver, CO. Preferably near downtown with a budget around $500,000. Needs a garage and good schools."
+
+
+@app.post("/ui/generate", response_class=HTMLResponse)
+async def ui_generate(request: Request, notes: str = Form(...)):
+    """Handle UI form submission and render report."""
+    session_id = str(uuid4())
+    correlation_id = state.audit_log.start_correlation()
+    
+    try:
+        # 1. Parse Notes
+        audit(AuditAction.NOTES_RECEIVED, {"notes_length": len(notes), "session_id": session_id})
+        parser = NotesParser(state.llm_client)
+        intent = parser.parse(notes)
+        audit(AuditAction.INTENT_PARSED, {"city": intent.subject_city, "state": intent.subject_state})
+        
+        # 2. Search Candidates
+        query_plan = QueryPlanBuilder.from_intent(intent)
+        result: SearchResult = state.connector.search(query_plan, max_tier=FieldTier.SAFE)
+        candidates = [r.raw_data for r in result.records]
+        
+        # 3. Select Comps (Auto-select top N)
+        # In a real app, we'd rank them. Here we just take the first few
+        selected = candidates[:settings.max_selected_comps]
+        if not selected:
+             return templates.TemplateResponse(
+                "index.html", 
+                {"request": request, "error": "No comparable properties found."}
+            )
+
+        # 4. Generate Report
+        # Build subject property
+        subject = SubjectProperty(
+            address=AddressInfo(
+                street=intent.subject_address,
+                city=intent.subject_city,
+                state=intent.subject_state,
+                zip_code=intent.subject_zip
+            ),
+            characteristics=PropertyCharacteristics(
+                property_type=intent.property_type or "Residential",
+                bedrooms=intent.subject_beds,
+                bathrooms=intent.subject_baths,
+                living_area_sqft=intent.subject_sqft,
+                lot_size_sqft=intent.subject_lot_sqft,
+                year_built=intent.subject_year_built
+            )
+        )
+        
+        # Build subject data for analytics
+        subject_data = {
+            "LivingArea": intent.subject_sqft,
+            "BedroomsTotal": intent.subject_beds,
+            "BathroomsTotalInteger": intent.subject_baths,
+            "YearBuilt": intent.subject_year_built,
+            "LotSizeSquareFeet": intent.subject_lot_sqft,
+            "GarageSpaces": None,
+            "PoolPrivateYN": None
+        }
+
+        # Process comps & analytics (reuse logic from generate_report endpoint)
+        comps = []
+        prices = []
+        adjusted_prices = []
+        ppsf_values = []
+        dom_values = []
+
+        for raw in selected:
+            adjustments = calculate_all_adjustments(subject_data, raw)
+            close_price = Decimal(str(raw.get("ClosePrice", 0)))
+            adjusted_price = close_price + adjustments.total
+            sqft = raw.get("LivingArea")
+            ppsf = calculate_price_per_sqft(close_price, sqft)
+            adjusted_ppsf = calculate_price_per_sqft(adjusted_price, sqft) if sqft else None
+            
+            close_date = raw.get("CloseDate")
+            if isinstance(close_date, str):
+                close_date = datetime.fromisoformat(close_date.replace("Z", "+00:00"))
+            elif close_date is None:
+                close_date = datetime.now()
+            
+            days_since = (datetime.now() - close_date).days if close_date else 0
+            distance = Decimal("0.5")
+            
+            similarity = calculate_similarity_score(subject_data, raw, float(distance), days_since)
+            
+            comp = CompProperty(
+                listing_id=raw.get("ListingId", str(uuid4())),
+                address=AddressInfo(
+                    street=f"{raw.get('ListingId', 'Unknown')} Street",
+                    city=raw.get("City", "Unknown"),
+                    state=raw.get("StateOrProvince", "XX"),
+                    zip_code=raw.get("PostalCode", "00000")
+                ),
+                characteristics=PropertyCharacteristics(
+                    property_type=raw.get("PropertyType", "Residential"),
+                    bedrooms=raw.get("BedroomsTotal"),
+                    bathrooms=raw.get("BathroomsTotalInteger"),
+                    living_area_sqft=raw.get("LivingArea"),
+                    lot_size_sqft=raw.get("LotSizeSquareFeet"),
+                    year_built=raw.get("YearBuilt"),
+                    garage_spaces=raw.get("GarageSpaces"),
+                    pool=raw.get("PoolPrivateYN")
+                ),
+                sale_info=SaleInfo(
+                    close_price=close_price,
+                    close_date=close_date,
+                    original_list_price=Decimal(str(raw.get("ListPrice", 0))) if raw.get("ListPrice") else None,
+                    days_on_market=raw.get("DaysOnMarket")
+                ),
+                distance_miles=distance,
+                similarity_score=similarity.total_score,
+                adjustments=[AdjustmentItem(**adj) for adj in adjustments.to_list()],
+                adjusted_price=adjusted_price,
+                price_per_sqft=ppsf,
+                adjusted_price_per_sqft=adjusted_ppsf
+            )
+            comps.append(comp)
+            prices.append(float(close_price))
+            adjusted_prices.append(float(adjusted_price))
+            if ppsf: ppsf_values.append(float(ppsf))
+            if raw.get("DaysOnMarket"): dom_values.append(raw["DaysOnMarket"])
+
+        # Detect outliers
+        outliers = detect_all_outliers(subject_data, selected)
+        for comp in comps:
+            if comp.listing_id in outliers:
+                outlier = outliers[comp.listing_id]
+                comp.is_outlier = outlier.is_outlier
+                if outlier.is_outlier:
+                    comp.outlier_reason = ", ".join(r.value for r in outlier.reasons)
+
+        # Analytics
+        import statistics
+        median_price = Decimal(str(statistics.median(prices))) if prices else Decimal(0)
+        mean_price = Decimal(str(statistics.mean(prices))) if prices else Decimal(0)
+        std_price = Decimal(str(statistics.stdev(prices))) if len(prices) > 1 else Decimal(0)
+        median_ppsf = Decimal(str(statistics.median(ppsf_values))) if ppsf_values else Decimal(0)
+        mean_ppsf = Decimal(str(statistics.mean(ppsf_values))) if ppsf_values else Decimal(0)
+        median_adj = Decimal(str(statistics.median(adjusted_prices))) if adjusted_prices else Decimal(0)
+        mean_adj = Decimal(str(statistics.mean(adjusted_prices))) if adjusted_prices else Decimal(0)
+        avg_dom = Decimal(str(statistics.mean(dom_values))) if dom_values else Decimal(0)
+        
+        indicated = median_adj
+        value_range = std_price * 2 if std_price > 0 else median_price * Decimal("0.05")
+        
+        analytics = AnalyticsSection(
+            indicated_value=indicated,
+            value_range_low=indicated - value_range,
+            value_range_high=indicated + value_range,
+            confidence_score=Decimal("75"),
+            median_price=median_price,
+            mean_price=mean_price,
+            price_std_dev=std_price,
+            median_price_per_sqft=median_ppsf,
+            mean_price_per_sqft=mean_ppsf,
+            median_adjusted_price=median_adj,
+            mean_adjusted_price=mean_adj,
+            avg_days_on_market=avg_dom,
+            total_comps_analyzed=len(comps),
+            outliers_excluded=sum(1 for c in comps if c.is_outlier)
+        )
+
+        limitations = []
+        if len(comps) < 3:
+            limitations.append(DataLimitation(category="sample_size", description="Fewer than 3 comps found.", severity="warning"))
+
+        report = ReportJSON(
+            subject=subject,
+            selected_comps=comps,
+            analytics=analytics,
+            limitations=limitations,
+            data_source=settings.data_source.value
+        )
+        
+        # Generate narrative (using default include_narrative=True behavior for UI)
+        writer = ReportWriter(state.llm_client)
+        narrative = writer.generate(report)
+        
+        # Render HTML
+        report_html = render_html_report(report, narrative)
+        
+        return templates.TemplateResponse("ui_report.html", {"request": request, "report_html": report_html})
+
+    except Exception as e:
+        logger.exception("UI Generation Failed")
+        return templates.TemplateResponse(
+            "index.html", 
+            {"request": request, "error": f"Generation failed: {str(e)}"}
+        )
+    finally:
+        state.audit_log.end_correlation()
 
 
 @app.post("/parse-notes", response_model=ParseNotesResponse)

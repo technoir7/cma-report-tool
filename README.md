@@ -22,7 +22,7 @@ This tool does all of that automatically! You give it some notes about a propert
 ### 1. Install Dependencies
 
 ```bash
-cd cma_compiler
+cd cma-report-tool
 pip install -r requirements.txt
 ```
 
@@ -36,7 +36,8 @@ The server starts at `http://localhost:8000`
 
 ### 3. Try It Out
 
-Open your browser to `http://localhost:8000/docs` to see the interactive API.
+- **Web UI**: Open your browser to `http://localhost:8000/ui` to use the interactive notes-only interface.
+- **Interactive docs**: Go to `http://localhost:8000/docs` to see the full API.
 
 ## How It Works (Simple Version)
 
@@ -119,18 +120,21 @@ cma_compiler/
 ├── analytics/           # Math calculations
 ├── llm/                 # AI integrations
 ├── renderer/            # Report formatting (HTML)
-└── tests/               # Test files
+├── tests/               # Test files
+└── data/                # Sample datasets
 ```
 
 ## API Endpoints
 
 | Endpoint | What It Does |
 |----------|--------------|
+| `GET /` | Service overview and metadata |
+| `GET /ui` | **(New)** Interactive Web UI |
 | `POST /parse-notes` | Convert your notes into structured data |
 | `POST /search-comps` | Find similar houses |
 | `POST /select-comps` | Pick which houses to use in report |
 | `POST /generate-report` | Create the final report |
-| `GET /health` | Check if the server is running |
+| `GET /health` | Basic status check |
 
 ## Running Tests
 

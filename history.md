@@ -1,5 +1,25 @@
 # CMA Compiler History
 
+## 2026-01-25: Web UI and Runtime Fixes
+
+### Added
+- **Notes-only Web UI**: 
+  - `GET /ui`: Interactive form for pasting agent notes.
+  - `POST /ui/generate`: Full pipeline execution (parse, search, select, report) with HTML preview.
+  - `GET /ui/sample`: Sample notes retrieval.
+- **Service Endpoints**:
+  - `GET /`: Root endpoint with service metadata.
+  - `GET /health`: Simplified health check returning `{"status": "ok"}`.
+
+### Changed
+- `app/main.py`: Configured `Jinja2Templates`, added UI routes and updated health check.
+- `requirements.txt`: Added `python-multipart` for form data support.
+
+### Fixed
+- **Dataclass Runtime Error**: Reordered fields in `ProvenanceRecord` (`audit/provenance.py`) to ensure non-default arguments follow default arguments, resolving the uvicorn startup failure on Python 3.12.
+
+---
+
 ## 2026-01-25: LLM Provider Switching System
 
 ### Added
