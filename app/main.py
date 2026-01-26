@@ -519,6 +519,8 @@ async def ui_update_criteria(
     session_id: str = Form(...),
     radius: float | None = Form(None),
     max_age: int | None = Form(None),
+    beds: int | None = Form(None),
+    baths: float | None = Form(None),
     intent_json: str = Form(...)
 ):
     """
@@ -526,8 +528,7 @@ async def ui_update_criteria(
     Updates IntentIR, re-runs search, and re-renders review screen.
     """
     try:
-        # Reconstruct intent (simplified for this demo - realistically would parse JSON or individual fields)
-        # Here we just override specific fields on the existing intent
+        # Reconstruct intent
         import json
         intent_data = json.loads(intent_json)
         intent = IntentIR(**intent_data)
@@ -537,8 +538,18 @@ async def ui_update_criteria(
             intent.search_radius_miles = radius
         if max_age is not None:
             intent.max_age_years = max_age
+        if beds is not None:
+            intent.subject_beds = beds
+        if baths is not None:
+            intent.subject_baths = baths
             
-        audit(AuditAction.ASSUMPTIONS_MODIFIED, {"session_id": session_id, "radius": radius, "max_age": max_age})
+        audit(AuditAction.ASSUMPTIONS_MODIFIED, {
+            "session_id": session_id, 
+            "radius": radius, 
+            "max_age": max_age,
+            "beds": beds,
+            "baths": baths
+        })
         
         # Re-run search
         packet = await _execute_search_flow(intent, session_id)
@@ -553,13 +564,13 @@ async def ui_update_criteria(
                 "request": request, 
                 "packet": packet,
                 "total_found": len(packet.candidates),
+                "was_capped": len(packet.candidates) >= 200,
                 "session_id": session_id
             }
         )
         
     except Exception as e:
         logger.exception("Update Criteria Failed")
-        # In real app, redirect with flash message. Here just re-render check.
         return Response(content=f"Error updating criteria: {str(e)}", status_code=500)
 
 

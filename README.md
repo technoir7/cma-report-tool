@@ -17,27 +17,34 @@ This tool does all of that automatically! You give it some notes about a propert
 - **Calculates adjustments** (like "this house has an extra bedroom, so it's worth more")
 - **Writes a report** explaining everything
 
-## Quick Start
+## Quick Start (Local Demo)
 
-### 1. Install Dependencies
-
+### 1. Simple One-Command Run
+The easiest way to start the project is using the provided scripts:
 ```bash
-cd cma-report-tool
-pip install -r requirements.txt
+# First time setup
+./scripts/setup.sh
+
+# Start the application
+./scripts/dev.sh
 ```
 
-### 2. Run the Server
+### 2. Demo the "Human-in-the-Loop" Flow
+1. Open your browser to `http://localhost:8000/ui`.
+2. **Search**: Enter a sample query like:
+   > "3 bed 2 bath in Denver 80202, under $600k"
+3. **Review Candidates**:
+   - Inspect the ranked list of comparable properties.
+   - Hover over the **Score** (e.g., "95%") to see the breakdown logic.
+   - Use the **Search Rules** sidebar to adjust Beds, Baths, or Radius.
+   - Toggle specific properties to Include/Exclude.
+4. **Generate**: Click "Generate Report" to see the final output.
+5. **Download**: Use the "Download PDF" button to get a professional PDF.
 
-```bash
-python -m uvicorn app.main:app --reload
-```
-
-The server starts at `http://localhost:8000`
-
-### 3. Try It Out
-
-- **Web Interface (Frontend)**: Open your browser to `http://localhost:8000/ui`. The frontend is integrated directly into the server—no separate build or run step is required.
-- **Interactive API Docs**: Go to `http://localhost:8000/docs` to see the full API.
+### 3. Check Disclaimers
+Note that every page includes the mandatory footer:
+> "Informational only; not an appraisal. Based on data from Mock MLS."
+Validated by `tests/test_ui_rendering.py`.
 
 ## How It Works (Simple Version)
 

@@ -1,5 +1,37 @@
 # CMA Compiler History
 
+## 2026-01-25: Developer Productivity Tools
+
+### Added
+- **One-Command Runner**: Created `scripts/dev.sh` to handle environment activation and server startup in a single step.
+- **Idempotent Setup**: Created `scripts/setup.sh` to automate virtual environment creation and dependency installation.
+- **Project Structure**: Organized automation scripts into a dedicated `scripts/` directory.
+
+### Changed
+- **Requirements**: Added `weasyprint` to `requirements.txt` to ensure PDF generation works out-of-the-box.
+- **Documentation**: Simplified the "Quick Start" section in `README.md` to use the new scripts.
+
+### Verified
+- **Scripts**: Manually verified `./scripts/setup.sh` and confirmed `./scripts/dev.sh` starts the FastAPI server correctly.
+
+---
+## 2026-01-25: UI Refinement & PDF Integration
+
+### Added
+- **Interactive Assumptions**: Added Bed/Bath/Radius inputs to the Review Screen sidebar (`review.html`), wired to `PUT /ui/update-criteria`.
+- **Score Transparency**: Added tooltips to the "Score" column showing granular breakdown (Location, Size, Age, etc.).
+- **PDF Download**: Fully integrated `WeasyPrint` for high-fidelity PDF output via `POST /ui/download-pdf`.
+- **Documentation**: Updated `README.md` with a clear "Demo Flow" section.
+
+### Fixed
+- **Analytics Handling**: Fixed server error in `_execute_search_flow` regarding Pydantic model assignment.
+- **Constraints Display**: Fixed logic to display `total_found` and `was_capped` correctly in the UI.
+
+### Verified
+- **Tests**: `tests/test_ui_rendering.py` and `tests/test_pdf_download.py` passing.
+
+---
+
 ## 2026-01-25: PDF Generation
 
 ### Added

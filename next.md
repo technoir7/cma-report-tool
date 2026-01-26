@@ -35,6 +35,8 @@ A fast, defensible CMA draft tool that reduces MLS UI friction while preserving 
 - **Connectors**:
   - Implemented: `RESOmockConnector`, `CSVConnector`.
   - Stubbed: `RESORealConnector`.
+- **Developer Experience**:
+  - Single-command dev runner implemented: `./scripts/dev.sh` (handles environment and startup).
 
 ## Minimum “Real Product” Checklist
 The following must be present for a demo-ready MVP:
@@ -43,6 +45,7 @@ The following must be present for a demo-ready MVP:
 - [x] **Recognizable Layout**: Standardized sections (Subject -> Comps -> Metrics) via `base.html` + `report.html`.
 - [x] **Explicit Disclaimers**: Hardcoded "Informational only; not an appraisal" visible on every page.
 - [x] **Transparent Constraints**: Clearly show search limits (e.g., "Only showing top 5/20 matches").
+- [x] **One-Command Demo**: Simplified startup via `./scripts/dev.sh`.
 
 ## Near-Term Roadmap (Next 1–3 milestones)
 

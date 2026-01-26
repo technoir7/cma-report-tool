@@ -55,6 +55,8 @@ def test_ui_search_flow():
     assert "Search Rules" in html # Sidebar
     assert "Generate Report" in html
     assert "Informational only; not an appraisal" in html # Footer
+    assert 'name="beds"' in html
+    assert 'name="baths"' in html
     
     # Check candidate table
     assert "Denver" in html
@@ -82,7 +84,8 @@ def test_ui_search_flow():
     # Check Report Page elements
     assert "Comparative Market Analysis" in html
     assert "Start Over" in html # Nav
-    assert "Print / Save PDF" in html # Action bar
+    assert "Print Web View" in html
+    assert "Download PDF" in html
     assert "Indicated Value" in html
     
     # Check Disclaimer (should be in base or wrapper)

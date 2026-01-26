@@ -70,6 +70,18 @@
                 </h2>
 
                 <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Min Beds</label>
+                            <input type="number" name="beds" value="{{ packet.intent.subject_beds }}"
+                                class="block w-full rounded border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Min Baths</label>
+                            <input type="number" step="0.5" name="baths" value="{{ packet.intent.subject_baths }}"
+                                class="block w-full rounded border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                    </div>
                     <div>
                         <label class="block text-xs text-gray-500 mb-1">Search Radius (miles)</label>
                         <input type="number" step="0.1" name="radius"
@@ -164,10 +176,30 @@
                                     <div class="text-xs text-gray-400 mt-1">{{ "{:.1f}".format(comp.distance_miles) }}
                                         mi away</div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500 align-top">
-                                    <div class="text-lg font-bold text-indigo-600">{{
+                                <td
+                                    class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500 align-top group relative">
+                                    <div class="text-lg font-bold text-indigo-600 cursor-help">{{
                                         "{:.0f}".format(comp.similarity_score) }}%</div>
                                     <div class="text-xs text-gray-400">match</div>
+
+                                    {% if comp.score_breakdown %}
+                                    <div
+                                        class="absolute right-0 top-12 z-10 w-48 p-2 bg-gray-900 text-white text-xs rounded shadow-lg hidden group-hover:block transition-all transform origin-top-right">
+                                        <div class="font-bold mb-1 border-b border-gray-700 pb-1">Score Breakdown</div>
+                                        <div class="grid grid-cols-2 gap-x-2">
+                                            <span>Location:</span> <span class="text-right">{{
+                                                comp.score_breakdown.location_score }}/30</span>
+                                            <span>Size:</span> <span class="text-right">{{
+                                                comp.score_breakdown.size_score }}/20</span>
+                                            <span>Rooms:</span> <span class="text-right">{{
+                                                comp.score_breakdown.rooms_score }}/15</span>
+                                            <span>Age/Cond:</span> <span class="text-right">{{
+                                                comp.score_breakdown.age_score }}/15</span>
+                                            <span>Recency:</span> <span class="text-right">{{
+                                                comp.score_breakdown.recency_score }}/20</span>
+                                        </div>
+                                    </div>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
