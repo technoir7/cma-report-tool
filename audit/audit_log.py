@@ -56,6 +56,11 @@ class AuditAction(str, Enum):
     # Data access
     FIELD_FILTERED = "field_filtered"
     TIER_RESTRICTION_APPLIED = "tier_restriction_applied"
+    
+    # Review & Verification
+    REVIEW_STARTED = "review_started"
+    REVIEW_COMPLETED = "review_completed"
+    ASSUMPTIONS_MODIFIED = "assumptions_modified"
 
 
 @dataclass

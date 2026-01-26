@@ -12,6 +12,9 @@ from typing import Any
 import math
 
 
+
+from domain.report_schema import ScoreBreakdown
+
 @dataclass
 class SimilarityWeights:
     """Weights for similarity score components."""
@@ -244,19 +247,62 @@ def calculate_price_similarity_score(
     return 100.0 * (1 - pct_diff / tolerance_pct)
 
 
-@dataclass
-class SimilarityResult:
-    """Result of similarity calculation."""
+def generate_selection_reasons(
+    breakdown: ScoreBreakdown,
+    subject: dict[str, Any],
+    comp: dict[str, Any],
+    distance: float
+) -> list[str]:
+    """
+    Generate explicit, agent-legible reasons for selection/ranking.
     
-    total_score: Decimal
-    distance_score: float
-    sqft_score: float
-    bedroom_score: float
-    bathroom_score: float
-    age_score: float
-    recency_score: float
-    price_score: float
+    Derived strictly from scores and data. No hallucination.
     
+    Args:
+        breakdown: The score breakdown
+        subject: Subject data
+        comp: Comp data
+        distance: Distance in miles
+    
+    Returns:
+        List of strings (e.g. "Within 0.5 miles", "Recent sale (15 days)")
+    """
+    reasons = []
+    
+    # Distance
+    if distance < 0.25:
+        reasons.append("Very close proximity (< 0.25 miles)")
+    elif distance < 1.0:
+        reasons.append(f"Nearby ({distance:.2f} miles)")
+        
+    # Recency
+    if breakdown.recency_score > 90:
+        reasons.append("Very recent sale")
+    elif breakdown.recency_score > 70:
+        reasons.append("Recent sale")
+        
+    # Bedrooms
+    s_beds = subject.get("BedroomsTotal")
+    c_beds = comp.get("BedroomsTotal")
+    if s_beds is not None and c_beds is not None and s_beds == c_beds:
+        reasons.append(f"Exact bedroom match ({s_beds} beds)")
+        
+    # Bathrooms
+    s_baths = subject.get("BathroomsTotalInteger")
+    c_baths = comp.get("BathroomsTotalInteger")
+    if s_baths is not None and c_baths is not None and abs(s_baths - c_baths) < 0.5:
+        reasons.append(f"Same bathroom count ({c_baths})")
+        
+    # Sqft
+    if breakdown.sqft_score > 90:
+        reasons.append("Similar living area")
+        
+    # Age
+    if breakdown.age_score > 90:
+        reasons.append("Similar age")
+        
+    return reasons
+
 
 def calculate_similarity_score(
     subject: dict[str, Any],
@@ -266,7 +312,7 @@ def calculate_similarity_score(
     estimated_subject_price: int | None = None,
     weights: SimilarityWeights | None = None,
     sqft_tolerance: float = 0.20
-) -> SimilarityResult:
+) -> ScoreBreakdown:
     """
     Calculate overall similarity score for a comparable.
     
@@ -280,7 +326,7 @@ def calculate_similarity_score(
         sqft_tolerance: Square footage tolerance
         
     Returns:
-        SimilarityResult with total and component scores
+        ScoreBreakdown with total and component scores
     """
     weights = weights or SimilarityWeights()
     
@@ -320,7 +366,7 @@ def calculate_similarity_score(
         weights.price * price_score
     )
     
-    return SimilarityResult(
+    return ScoreBreakdown(
         total_score=Decimal(str(total)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP),
         distance_score=distance_score,
         sqft_score=sqft_score,
@@ -339,7 +385,7 @@ def rank_comparables(
     sale_dates: dict[str, int],   # listing_id -> days since sale
     estimated_subject_price: int | None = None,
     limit: int = 20
-) -> list[tuple[dict[str, Any], SimilarityResult]]:
+) -> list[tuple[dict[str, Any], ScoreBreakdown, list[str]]]:
     """
     Rank comparables by similarity score.
     
@@ -352,7 +398,7 @@ def rank_comparables(
         limit: Maximum comps to return
         
     Returns:
-        List of (comp, SimilarityResult) sorted by score descending
+        List of (comp, ScoreBreakdown, reasons) sorted by score descending
     """
     scored = []
     
@@ -361,7 +407,7 @@ def rank_comparables(
         distance = distances.get(listing_id, 5.0)
         days = sale_dates.get(listing_id, 365)
         
-        result = calculate_similarity_score(
+        breakdown = calculate_similarity_score(
             subject=subject,
             comp=comp,
             distance_miles=distance,
@@ -369,7 +415,9 @@ def rank_comparables(
             estimated_subject_price=estimated_subject_price
         )
         
-        scored.append((comp, result))
+        reasons = generate_selection_reasons(breakdown, subject, comp, distance)
+        
+        scored.append((comp, breakdown, reasons))
     
     # Sort by total score descending
     scored.sort(key=lambda x: x[1].total_score, reverse=True)

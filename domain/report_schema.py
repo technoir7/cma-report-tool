@@ -128,19 +128,60 @@ class AdjustmentItem(BaseModel):
         return {self.amount, abs(self.amount)}
 
 
+
+class ScoreBreakdown(BaseModel):
+    """Breakdown of similarity scoring components."""
+    
+    total_score: Decimal
+    distance_score: float
+    sqft_score: float
+    bedroom_score: float
+    bathroom_score: float
+    age_score: float
+    recency_score: float
+    price_score: float
+    
+    def get_numeric_values(self) -> set[Decimal]:
+        """Extract numeric values for hallucination check."""
+        return {
+            self.total_score,
+            Decimal(str(self.distance_score)),
+            Decimal(str(self.sqft_score)),
+            Decimal(str(self.bedroom_score)),
+            Decimal(str(self.bathroom_score)),
+            Decimal(str(self.age_score)),
+            Decimal(str(self.recency_score)),
+            Decimal(str(self.price_score)),
+        }
+
+
 class CompProperty(BaseModel):
-    """A comparable property with adjustments."""
+    """
+    A comparable property with adjustments and ranking.
+    
+    Now includes strict provenance and decision explanation fields
+    for agent reviewability.
+    """
     
     listing_id: str
     address: AddressInfo
     characteristics: PropertyCharacteristics
     sale_info: SaleInfo
     
+    # Provenance
+    data_source: str = "unknown"
+    data_timestamp: datetime = Field(default_factory=datetime.utcnow)
+    
     # Distance from subject
     distance_miles: Decimal
     
-    # Similarity score (0-100)
+    # Ranking & similarity
+    rank_index: int | None = None  # 1-based index in sorted list
     similarity_score: Decimal = Field(ge=0, le=100)
+    score_breakdown: ScoreBreakdown | None = None
+    
+    # Agent-legible explanation
+    selection_reasons: list[str] = Field(default_factory=list)
     
     # Adjustments applied
     adjustments: list[AdjustmentItem] = Field(default_factory=list)
@@ -162,7 +203,14 @@ class CompProperty(BaseModel):
         values.update(self.sale_info.get_numeric_values())
         values.add(self.distance_miles)
         values.add(self.similarity_score)
+        
+        if self.score_breakdown:
+            values.update(self.score_breakdown.get_numeric_values())
+            
         values.add(self.adjusted_price)
+        
+        if self.rank_index is not None:
+            values.add(Decimal(self.rank_index))
         
         if self.price_per_sqft is not None:
             values.add(self.price_per_sqft)
