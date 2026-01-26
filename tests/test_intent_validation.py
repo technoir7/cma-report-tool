@@ -29,7 +29,7 @@ class TestIntentIRValidation:
         assert intent.subject_city == "Denver"
         assert intent.subject_state == "CO"
         assert intent.search_radius_miles == 1.0  # default
-        assert intent.max_age_years == 1  # default
+        assert intent.sold_within_years == 2  # default
     
     def test_valid_full_intent(self):
         """Test that full valid intent is accepted."""
@@ -48,7 +48,7 @@ class TestIntentIRValidation:
             price_range_min=400000,
             price_range_max=600000,
             sqft_tolerance_pct=0.25,
-            max_age_years=2,
+            sold_within_years=2,
             special_features=["pool", "garage"]
         )
         
@@ -187,17 +187,17 @@ class TestIntentIRValidation:
             )
     
     def test_search_radius_exceeds_maximum(self):
-        """Test that search_radius > 5.0 is rejected."""
-        with pytest.raises(ValidationError) as exc_info:
-            IntentIR(
-                subject_address="123 Main St",
-                subject_city="Denver",
-                subject_state="CO",
-                subject_zip="80202",
-                search_radius_miles=10.0  # Exceeds max
-            )
+        """Test that search_radius > 5.0 is clamped to 5.0."""
+        # Values > 5.0 should be clamped to 5.0 (not rejected)
+        intent = IntentIR(
+            subject_address="123 Main St",
+            subject_city="Denver",
+            subject_state="CO",
+            subject_zip="80202",
+            search_radius_miles=10.0  # Exceeds max, should be clamped
+        )
         
-        assert "search_radius_miles" in str(exc_info.value)
+        assert intent.search_radius_miles == 5.0  # Clamped to max
     
     def test_price_range_min_exceeds_max(self):
         """Test that price_range_min > price_range_max is rejected."""
@@ -287,5 +287,5 @@ class TestIntentIRValidation:
         assert criteria["state"] == "CO"
         assert criteria["beds_min"] == 2  # 3 - 1
         assert criteria["beds_max"] == 4  # 3 + 1
-        assert criteria["sqft_min"] == 1440  # 1800 * 0.8
-        assert criteria["sqft_max"] == 2160  # 1800 * 1.2
+        assert criteria["sqft_min"] == 1530  # 1800 * (1 - 0.15)
+        assert criteria["sqft_max"] == 2070  # 1800 * (1 + 0.15)

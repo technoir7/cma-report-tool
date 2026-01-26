@@ -46,6 +46,9 @@ class ReviewPacket(BaseModel):
     # Live preview of the numbers (optional, computed on fly)
     analytics_preview: AnalyticsSection | None = None
     
+    # Validation/System warnings
+    warnings: list[str] = Field(default_factory=list)
+    
     def validate_selection_limit(self, limit: int = 20):
         """Ensure selection count is within bounds."""
         if len(self.selected_listing_ids) > limit:

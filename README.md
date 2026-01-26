@@ -139,18 +139,31 @@ cma_compiler/
 | `GET /` | Service overview and metadata |
 | `GET /ui` | **(New)** Interactive Web UI |
 | `POST /parse-notes` | Convert your notes into structured data |
-| `POST /search-comps` | Find similar houses |
+| `POST /search-comps` | Find similar houses (auto-generates session) |
 | `POST /select-comps` | Pick which houses to use in report |
 | `POST /generate-report` | Create the final report |
-| `GET /health` | Basic status check |
+
+### Example: Search without Session ID
+```bash
+curl -X POST http://localhost:8000/search-comps \
+  -H "Content-Type: application/json" \
+  -d '{
+    "intent": {
+      "subject_city": "Denver",
+      "subject_beds": 3,
+      "subject_year_built": 1950
+    }
+  }'
+```
+Response includes `"session_id": "..."`.
 
 ## Running Tests
 
 ```bash
-python -m pytest tests/ -v
+pytest -q
 ```
 
-All 57 tests should pass ✅
+All tests should pass ✅ (Note: PDF rendering requires `weasyprint` with compatible `pydyf < 0.12`).
 
 ## Glossary
 

@@ -324,9 +324,9 @@ class QueryPlanBuilder:
             ))
         
         # Date filter for max age
-        if intent.max_age_years > 0:
+        if intent.sold_within_years > 0:
             from datetime import timedelta
-            min_date = date.today() - timedelta(days=intent.max_age_years * 365)
+            min_date = date.today() - timedelta(days=intent.sold_within_years * 365)
             filters.append(FilterCondition(
                 field="CloseDate",
                 operator=FilterOperator.GE,

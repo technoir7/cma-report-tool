@@ -113,11 +113,11 @@ class IntentIR(BaseModel):
         le=0.5,
         description="Square footage tolerance percentage (0-0.5)"
     )
-    max_age_years: int = Field(
-        default=1,
+    sold_within_years: int = Field(
+        default=2,
         ge=0,
         le=5,
-        description="Maximum age of comparable sales in years (0-5)"
+        description="Maximum years since sale (Recency) to search (0-5)"
     )
     
     # Special features (bounded list)
@@ -164,12 +164,12 @@ class IntentIR(BaseModel):
             elif isinstance(sqft_tol, (int, float)):
                 values["sqft_tolerance_pct"] = max(0.0, min(0.5, sqft_tol))
             
-            # max_age_years: default 1, clamp to [0, 5]
-            max_age = values.get("max_age_years")
-            if max_age is None:
-                values["max_age_years"] = 1
-            elif isinstance(max_age, int):
-                values["max_age_years"] = max(0, min(5, max_age))
+            # sold_within_years: default 2, clamp to [0, 5]
+            recency = values.get("sold_within_years")
+            if recency is None:
+                values["sold_within_years"] = 2
+            elif isinstance(recency, int):
+                values["sold_within_years"] = max(0, min(5, recency))
             
             # search_radius_miles: default 1.0, clamp to [0.1, 5.0]
             radius = values.get("search_radius_miles")
@@ -209,7 +209,8 @@ class IntentIR(BaseModel):
             "price_min": self.price_range_min,
             "price_max": self.price_range_max,
             "radius_miles": self.search_radius_miles,
-            "max_age_years": self.max_age_years,
+            "radius_miles": self.search_radius_miles,
+            "sold_within_years": self.sold_within_years,
             "special_features": self.special_features,
         }
 

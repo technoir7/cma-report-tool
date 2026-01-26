@@ -221,6 +221,48 @@ def _load_sample_data(connector: InMemoryRESOConnector):
             "Latitude": 39.7410,
             "Longitude": -104.9870,
         },
+        {
+            "ListingId": "CMA-006",
+            "ListPrice": 460000,
+            "ClosePrice": 455000,
+            "CloseDate": datetime.now() - timedelta(days=15),
+            "DaysOnMarket": 5,
+            "PropertyType": "Residential",
+            "BedroomsTotal": 2,
+            "BathroomsTotalInteger": 1,
+            "LivingArea": 980,
+            "LotSizeSquareFeet": 5000,
+            "YearBuilt": 1948,
+            "GarageSpaces": 1,
+            "PoolPrivateYN": False,
+            "City": "Denver",
+            "StateOrProvince": "CO",
+            "PostalCode": "80202",
+            "StandardStatus": "Closed",
+            "Latitude": 39.7390,
+            "Longitude": -104.9910,
+        },
+        {
+            "ListingId": "CMA-007",
+            "ListPrice": 440000,
+            "ClosePrice": 435000,
+            "CloseDate": datetime.now() - timedelta(days=45),
+            "DaysOnMarket": 12,
+            "PropertyType": "Residential",
+            "BedroomsTotal": 2,
+            "BathroomsTotalInteger": 1,
+            "LivingArea": 1050,
+            "LotSizeSquareFeet": 5200,
+            "YearBuilt": 1952,
+            "GarageSpaces": 1,
+            "PoolPrivateYN": False,
+            "City": "Denver",
+            "StateOrProvince": "CO",
+            "PostalCode": "80202",
+            "StandardStatus": "Closed",
+            "Latitude": 39.7380,
+            "Longitude": -104.9920,
+        },
     ]
     
     connector.load_listings(sample_listings)
@@ -384,7 +426,7 @@ class ParseNotesResponse(BaseModel):
 
 class SearchCompsRequest(BaseModel):
     """Request body for search-comps endpoint."""
-    session_id: str
+    session_id: str | None = None
     intent: IntentIR | None = None  # Optional override
 
 
@@ -537,7 +579,7 @@ async def ui_update_criteria(
         if radius is not None:
             intent.search_radius_miles = radius
         if max_age is not None:
-            intent.max_age_years = max_age
+            intent.sold_within_years = max_age
         if beds is not None:
             intent.subject_beds = beds
         if baths is not None:
@@ -578,7 +620,7 @@ async def ui_update_criteria(
 async def ui_generate(
     request: Request, 
     session_id: str = Form(...),
-    selected_ids: list[str] = Form(...)
+    selected_ids: list[str] = Form([])
 ):
     """
     Generate final reported from selected IDs.
@@ -737,12 +779,20 @@ async def _execute_search_flow(intent: IntentIR, session_id: str) -> ReviewPacke
     selected_ids = [c.listing_id for c in candidates[:settings.max_selected_comps]]
     preview = _calculate_analytics(candidates[:settings.max_selected_comps])
     
+    warnings = []
+    if not candidates:
+        if intent.sold_within_years < 2:
+            warnings.append(f"No listings found. 'Max Recency' ({intent.sold_within_years} year) might be too strict.")
+        else:
+            warnings.append("No listings found. Try increasing search radius or relaxing assumptions.")
+    
     return ReviewPacket(
         session_id=session_id,
         intent=intent,
         candidates=candidates,
         selected_listing_ids=selected_ids,
-        analytics_preview=preview
+        analytics_preview=preview,
+        warnings=warnings
     )
 
 
@@ -784,7 +834,25 @@ async def search_comps(request: SearchCompsRequest):
     Search for comparable properties based on IntentIR.
     Returns a ReviewPacket with ranked candidates.
     """
-    session = state.sessions.get(request.session_id)
+    session_id = request.session_id
+    if not session_id:
+        session_id = str(uuid4())
+        state.sessions[session_id] = {"created_at": datetime.utcnow()} # Init session
+        
+    session = state.sessions.get(session_id)
+    if not session:
+         # If ID provided but not found, act as if new or error?
+         # User said "If missing... return documented way to create one".
+         # Let's support creation if missing, but if provided and invalid, maybe error?
+         # But safer to just re-init for now or fail if explicit ID is bad.
+         # Actually let's assume if client provides ID they expect it to exist.
+         if request.session_id:
+             raise HTTPException(status_code=400, detail="Session expired or invalid")
+         else:
+             # Should have been created above
+             state.sessions[session_id] = {"created_at": datetime.utcnow()}
+             session = state.sessions[session_id]
+
     intent = request.intent or (session.get("intent") if session else None)
     
     if not intent:
@@ -796,99 +864,19 @@ async def search_comps(request: SearchCompsRequest):
     correlation_id = state.audit_log.start_correlation()
     
     try:
-        # Build query plan
-        query_plan = QueryPlanBuilder.from_intent(intent)
-        
-        audit(
-            AuditAction.QUERY_PLANNED,
-            {
-                "filters": len(query_plan.filters),
-                "max_results": query_plan.max_results,
-                "intent_hash": query_plan.intent_hash
-            }
-        )
-        
-        # Execute search
-        result: SearchResult = state.connector.search(query_plan, max_tier=FieldTier.SAFE)
-        
-        audit(
-            AuditAction.CANDIDATES_RETRIEVED,
-            {
-                "total": result.total_count,
-                "capped": result.was_capped
-            }
-        )
-        
-        # Calculate derived ranking inputs (mocking distance for now as connectors don't return it yet)
-        # In a real impl, connector returns distance or we compute from lat/long
-        distances = {r.get("ListingId"): 0.5 for r in result.records} 
-        
-        # Determine sale recency
-        today = datetime.now()
-        dates = {}
-        for r in result.records:
-            lid = r.get("ListingId")
-            cd = r.get("CloseDate")
-            if isinstance(cd, datetime):
-                delta = (today - cd).days
-            elif isinstance(cd, str):
-                try:
-                     dt = datetime.fromisoformat(cd.replace("Z", "+00:00"))
-                     delta = (today - dt).days
-                except:
-                     delta = 30
-            else:
-                delta = 30
-            dates[lid] = delta
-            
-        # Rank
-        subject_data = {
-            "LivingArea": intent.subject_sqft,
-            "BedroomsTotal": intent.subject_beds,
-            "BathroomsTotalInteger": intent.subject_baths,
-            "YearBuilt": intent.subject_year_built,
-        }
-        
-        ranked_candidates = rank_comparables(
-            subject=subject_data,
-            comps=[r.raw_data for r in result.records],
-            distances=distances,
-            sale_dates=dates,
-            limit=50  # Return top 50 for review
-        )
-        
-        # Build CompProperty objects
-        candidates = _construct_comp_properties(subject_data, ranked_candidates, state.connector.source_name)
-        
-        # Default selection (top 5)
-        selected_ids = [c.listing_id for c in candidates[:settings.max_selected_comps]]
-        
-        # Analytics Preview on default
-        preview = _calculate_analytics(candidates[:settings.max_selected_comps])
-        
-        # Construct Review Packet
-        packet = ReviewPacket(
-            session_id=request.session_id,
-            intent=intent,
-            candidates=candidates,
-            selected_listing_ids=selected_ids,
-            analytics_preview=preview
-        )
+        # Execute search flow (shared logic)
+        packet = await _execute_search_flow(intent, session_id)
         
         # Update session
-        if session is None:
-            session = {"created_at": datetime.utcnow()}
-            state.sessions[request.session_id] = session
-        
-        session["intent"] = intent
-        session["review_packet"] = packet
+        state.sessions[session_id]["intent"] = intent
+        state.sessions[session_id]["review_packet"] = packet
         
         return SearchCompsResponse(
             success=True,
             review_packet=packet,
-            total_found=result.total_count,
-            was_capped=result.was_capped,
-            session_id=request.session_id
+            total_found=len(packet.candidates),
+            was_capped=len(packet.candidates) >= 200,
+            session_id=session_id
         )
         
     except Exception as e:

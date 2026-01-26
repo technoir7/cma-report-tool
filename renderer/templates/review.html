@@ -89,8 +89,8 @@
                             class="block w-full rounded border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-500 mb-1">Max Age (years)</label>
-                        <input type="number" name="max_age" value="{{ packet.intent.max_age_years or 10 }}"
+                        <label class="block text-xs text-gray-500 mb-1">Max Recency (years)</label>
+                        <input type="number" name="max_age" value="{{ packet.intent.sold_within_years or 2 }}"
                             class="block w-full rounded border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
                     </div>
                     <!-- Hidden fields to preserve state -->

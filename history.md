@@ -1,5 +1,24 @@
 # CMA Compiler History
 
+## Unreleased
+
+### Fixed
+- **PDF Rendering**: Pinned `pydyf < 0.12` to restore WeasyPrint PDF rendering. WeasyPrint 62.1 is incompatible with pydyf 0.12+ which removed `Stream.transform`. (2026-01-26)
+
+## 2026-01-26: Logic Fixes & API Ergonomics
+
+### Fixed
+- **Older Home Logic**: Renamed ambiguous `max_age_years` to `sold_within_years` in `IntentIR`. Default changed from 1 to 2 years.
+- **Data Source**: Appended 1940s/50s bungalow mock data to `data/mock_listings.csv` to support demo queries.
+- **API Ergonomics**: `/search-comps` now auto-generates `session_id`.
+- **Search Guardrails**: Added explicit warnings in `ReviewPacket`.
+- **UI Robustness**: Fixed `Generate Report` crash when 0 results are selected (now optional field).
+
+### Verified
+- **Regression Test**: Added `tests/test_regression_zero_results.py` to confirm "Older Home" queries work and API accepts missing session ID.
+
+---
+
 ## 2026-01-25: Developer Productivity Tools
 
 ### Added

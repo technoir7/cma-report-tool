@@ -30,8 +30,14 @@ class AddressInfo(BaseModel):
     longitude: float | None = Field(default=None, ge=-180, le=180)
     
     def get_numeric_values(self) -> set[Decimal]:
-        """Extract numeric values (like zip) for hallucination check."""
+        """Extract numeric values (like zip, street number) for hallucination check."""
+        import re
         values = set()
+        # Extract street number if present (e.g., "123 Main St" -> 123)
+        if self.street:
+            match = re.match(r'^(\d+)', self.street)
+            if match:
+                values.add(Decimal(match.group(1)))
         if self.zip_code and self.zip_code.isdigit():
             values.add(Decimal(self.zip_code))
         if self.latitude is not None:

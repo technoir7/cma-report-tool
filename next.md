@@ -1,5 +1,11 @@
 # CMA Compiler Roadmap (Canonical)
 
+## Done
+- [x] **Fix WeasyPrint/pydyf conflict**: Pinned `pydyf < 0.12` to restore PDF rendering for WeasyPrint 62.1.
+
+## Follow-ups
+- [ ] **Upgrade WeasyPrint**: Upgrade to `weasyprint >= 63` to remove the `pydyf` version pin.
+
 ## Snapshot
 Backend-complete MVP with deterministic ranking, agent-reviewable "Review Packets", and immutable audit logs. Strict separation of stochastic LLM (Intent/Narrative) and deterministic Logic (Ranking/Math).
 
@@ -46,6 +52,8 @@ The following must be present for a demo-ready MVP:
 - [x] **Explicit Disclaimers**: Hardcoded "Informational only; not an appraisal" visible on every page.
 - [x] **Transparent Constraints**: Clearly show search limits (e.g., "Only showing top 5/20 matches").
 - [x] **One-Command Demo**: Simplified startup via `./scripts/dev.sh`.
+- [x] **Smart Defaults**: "Older home" queries don't trigger strict filters; `session_id` is auto-generated if missing.
+
 
 ## Near-Term Roadmap (Next 1–3 milestones)
 
