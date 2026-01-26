@@ -623,7 +623,11 @@ async def ui_generate(
         
         return templates.TemplateResponse(
             "ui_report.html", 
-            {"request": request, "report_html": inner_html}
+            {
+                "request": request, 
+                "report_html": inner_html, 
+                "session_id": session_id
+            }
         )
 
     except Exception as e:
@@ -634,6 +638,64 @@ async def ui_generate(
         )
     finally:
         state.audit_log.end_correlation()
+
+
+@app.post("/ui/download-pdf")
+async def ui_download_pdf(
+    session_id: str = Form(...)
+):
+    """
+    Generate and download PDF report.
+    """
+    session = state.sessions.get(session_id)
+    if not session or "review_packet" not in session:
+        raise HTTPException(status_code=400, detail="Session expired")
+        
+    packet: ReviewPacket = session["review_packet"]
+    selected_ids = packet.selected_listing_ids
+    
+    # Re-calculate report (ensure fresh state)
+    selected_comps = [c for c in packet.candidates if c.listing_id in selected_ids]
+    analytics = _calculate_analytics(selected_comps)
+    
+    subject = SubjectProperty(
+        address=AddressInfo(
+            street=str(packet.intent.subject_address) or "",
+            city=str(packet.intent.subject_city),
+            state=str(packet.intent.subject_state),
+            zip_code=str(packet.intent.subject_zip)
+        ),
+        characteristics=PropertyCharacteristics(
+            property_type=packet.intent.property_type or "Residential",
+            bedrooms=packet.intent.subject_beds,
+            bathrooms=packet.intent.subject_baths,
+            living_area_sqft=packet.intent.subject_sqft,
+            year_built=packet.intent.subject_year_built
+        )
+    )
+    
+    report = ReportJSON(
+        subject=subject,
+        selected_comps=selected_comps,
+        analytics=analytics,
+        data_source=settings.data_source.value
+    )
+    
+    # Generate narrative (cached or fresh)
+    writer = ReportWriter(state.llm_client)
+    narrative = writer.generate(report)
+    
+    # Render PDF
+    from renderer.pdf import render_pdf_report
+    pdf_bytes = render_pdf_report(report, narrative)
+    
+    # Return as download
+    filename = f"CMA_Report_{packet.intent.subject_address or 'Draft'}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 
 async def _execute_search_flow(intent: IntentIR, session_id: str) -> ReviewPacket:

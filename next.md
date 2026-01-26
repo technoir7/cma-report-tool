@@ -29,6 +29,9 @@ A fast, defensible CMA draft tool that reduces MLS UI friction while preserving 
 - **Safety**:
   - `audit/`: Immutable logs with new Review events (`REVIEW_STARTED`, `ASSUMPTIONS_MODIFIED`, `REVIEW_COMPLETED`).
   - `HallucinationVerifier`: Numeric verification of generated narrative.
+- **Output**:
+  - **HTML**: Standardized layouts (`base.html`) with interactive review.
+  - **PDF**: Professional PDF generation via `WeasyPrint` (endpoint `/ui/download-pdf`).
 - **Connectors**:
   - Implemented: `RESOmockConnector`, `CSVConnector`.
   - Stubbed: `RESORealConnector`.
@@ -50,7 +53,7 @@ The following must be present for a demo-ready MVP:
   - Field mapping from production RESO dictionaries.
 
 ### 2. Output Generation
-- [ ] **PDF Rendering**: `renderer/pdf.py` is currently a stub. Needs integration with `wkhtmltopdf` or `WeasyPrint`.
+- [x] **PDF Rendering**: Implemented using `WeasyPrint` via `renderer/pdf.py`.
 - [ ] **Advanced Templates**: Expand HTML/Jinja2 templates to support agency branding.
 
 ### 3. Production Hardening

@@ -1,5 +1,17 @@
 # CMA Compiler History
 
+## 2026-01-25: PDF Generation
+
+### Added
+- **PDF Rendering**: Implemented `renderer/pdf.py` using `WeasyPrint` to generate high-fidelity, printable CMA reports.
+- **PDF Download Endpoint**: Added `POST /ui/download-pdf` to allow generating and downloading PDF reports directly from the UI.
+- **Dependencies**: Added `weasyprint` (and its dependencies Pango/Cairo) to the environment.
+
+### Verified
+- **PDF Output**: Added `tests/test_pdf_download.py` confirming correct Content-Type (application/pdf), Content-Disposition headers, and valid PDF binary structure.
+
+---
+
 ## 2026-01-25: Review UI & Standard Layout
 
 ### Added

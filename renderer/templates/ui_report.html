@@ -28,9 +28,16 @@
 
         <!-- Action Bar -->
         <div class="mb-6 flex justify-end gap-2 px-4 sm:px-0">
+            <form action="/ui/download-pdf" method="POST">
+                <input type="hidden" name="session_id" value="{{ session_id }}">
+                <button type="submit"
+                    class="inline-flex items-center px-3 py-2 border border-blue-600 shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Download PDF
+                </button>
+            </form>
             <button onclick="window.print()"
                 class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none">
-                Print / Save PDF
+                Print Web View
             </button>
         </div>
 
