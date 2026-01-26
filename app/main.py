@@ -449,8 +449,11 @@ async def health_check():
 
 @app.get("/ui")
 async def ui_index(request: Request):
-    """Render the main UI page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    """Render the main search page."""
+    return templates.TemplateResponse(
+        "index.html", 
+        {"request": request, "data_source": settings.data_source.value}
+    )
 
 
 @app.get("/ui/sample", response_class=PlainTextResponse)
@@ -463,11 +466,11 @@ async def ui_sample():
         return "Looking for a 3 bedroom, 2 bathroom house in Denver, CO. Preferably near downtown with a budget around $500,000. Needs a garage and good schools."
 
 
-@app.post("/ui/generate", response_class=HTMLResponse)
-async def ui_generate(request: Request, notes: str = Form(...)):
+@app.post("/ui/search", response_class=HTMLResponse)
+async def ui_search(request: Request, notes: str = Form(...)):
     """
-    Handle UI form submission and render report.
-    (Updated to use new pipeline under hood)
+    Handle initial search from notes.
+    Parses notes, runs search, and renders the review screen.
     """
     session_id = str(uuid4())
     correlation_id = state.audit_log.start_correlation()
@@ -477,61 +480,126 @@ async def ui_generate(request: Request, notes: str = Form(...)):
         audit(AuditAction.NOTES_RECEIVED, {"notes_length": len(notes), "session_id": session_id})
         parser = NotesParser(state.llm_client)
         intent = parser.parse(notes)
-        audit(AuditAction.INTENT_PARSED, {"city": intent.subject_city, "state": intent.subject_state})
+        audit(AuditAction.INTENT_PARSED, {"city": intent.subject_city})
         
-        # 2. Search & Rank & Review Packet
-        query_plan = QueryPlanBuilder.from_intent(intent)
-        result: SearchResult = state.connector.search(query_plan, max_tier=FieldTier.SAFE)
+        # 2. Search & Rank
+        packet = await _execute_search_flow(intent, session_id)
         
-        # Fake distances/dates for ranking
-        distances = {r.get("ListingId"): 0.5 for r in result.records}
-        dates = {r.get("ListingId"): 30 for r in result.records}
-        
-        # Rank
-        subject_data = {
-            "LivingArea": intent.subject_sqft,
-            "BedroomsTotal": intent.subject_beds,
-            "BathroomsTotalInteger": intent.subject_baths,
-            "YearBuilt": intent.subject_year_built,
+        # 3. Store in Session
+        state.sessions[session_id] = {
+            "intent": intent,
+            "review_packet": packet,
+            "created_at": datetime.utcnow()
         }
         
-        ranked = rank_comparables(
-            subject=subject_data,
-            comps=[r.raw_data for r in result.records],
-            distances=distances,
-            sale_dates=dates,
-            limit=200
+        return templates.TemplateResponse(
+            "review.html", 
+            {
+                "request": request, 
+                "packet": packet,
+                "total_found": len(packet.candidates),
+                "was_capped": False, # TODO: Plumb from search result
+                "session_id": session_id
+            }
+        )
+
+    except Exception as e:
+        logger.exception("UI Search Failed")
+        return templates.TemplateResponse(
+            "index.html", 
+            {"request": request, "error": f"Search failed: {str(e)}", "notes": notes}
+        )
+    finally:
+        state.audit_log.end_correlation()
+
+
+@app.post("/ui/update-criteria", response_class=HTMLResponse)
+async def ui_update_criteria(
+    request: Request,
+    session_id: str = Form(...),
+    radius: float | None = Form(None),
+    max_age: int | None = Form(None),
+    intent_json: str = Form(...)
+):
+    """
+    Handle criteria updates from the review screen.
+    Updates IntentIR, re-runs search, and re-renders review screen.
+    """
+    try:
+        # Reconstruct intent (simplified for this demo - realistically would parse JSON or individual fields)
+        # Here we just override specific fields on the existing intent
+        import json
+        intent_data = json.loads(intent_json)
+        intent = IntentIR(**intent_data)
+        
+        # Apply overrides
+        if radius is not None:
+            intent.search_radius_miles = radius
+        if max_age is not None:
+            intent.max_age_years = max_age
+            
+        audit(AuditAction.ASSUMPTIONS_MODIFIED, {"session_id": session_id, "radius": radius, "max_age": max_age})
+        
+        # Re-run search
+        packet = await _execute_search_flow(intent, session_id)
+        
+        # Update session
+        state.sessions[session_id]["intent"] = intent
+        state.sessions[session_id]["review_packet"] = packet
+        
+        return templates.TemplateResponse(
+            "review.html", 
+            {
+                "request": request, 
+                "packet": packet,
+                "total_found": len(packet.candidates),
+                "session_id": session_id
+            }
         )
         
-        # Create Comp Properties
-        all_candidates = _construct_comp_properties(subject_data, ranked, state.connector.source_name)
+    except Exception as e:
+        logger.exception("Update Criteria Failed")
+        # In real app, redirect with flash message. Here just re-render check.
+        return Response(content=f"Error updating criteria: {str(e)}", status_code=500)
+
+
+@app.post("/ui/generate", response_class=HTMLResponse)
+async def ui_generate(
+    request: Request, 
+    session_id: str = Form(...),
+    selected_ids: list[str] = Form(...)
+):
+    """
+    Generate final reported from selected IDs.
+    """
+    correlation_id = state.audit_log.start_correlation()
+    try:
+        session = state.sessions.get(session_id)
+        if not session or "review_packet" not in session:
+            return templates.TemplateResponse("index.html", {"request": request, "error": "Session expired"})
+            
+        packet: ReviewPacket = session["review_packet"]
         
-        # Top 20 for UI
-        selected_comps = all_candidates[:settings.max_selected_comps]
-        if not selected_comps:
-             return templates.TemplateResponse(
-                "index.html", 
-                {"request": request, "error": "No comparable properties found."}
-            )
+        # Update packet selection
+        packet.selected_listing_ids = selected_ids
         
-        # Analytics
+        # Generate Report data
+        selected_comps = [c for c in packet.candidates if c.listing_id in selected_ids]
         analytics = _calculate_analytics(selected_comps)
         
-        # Report
         subject = SubjectProperty(
             address=AddressInfo(
-                street=str(intent.subject_address) if intent.subject_address else "",
-                city=str(intent.subject_city) if intent.subject_city else "",
-                state=str(intent.subject_state) if intent.subject_state else "",
-                zip_code=str(intent.subject_zip) if intent.subject_zip else ""
+                street=str(packet.intent.subject_address) if packet.intent.subject_address else "",
+                city=str(packet.intent.subject_city),
+                state=str(packet.intent.subject_state),
+                zip_code=str(packet.intent.subject_zip)
             ),
             characteristics=PropertyCharacteristics(
-                property_type=intent.property_type or "Residential",
-                bedrooms=intent.subject_beds,
-                bathrooms=intent.subject_baths,
-                living_area_sqft=intent.subject_sqft,
-                lot_size_sqft=intent.subject_lot_sqft,
-                year_built=intent.subject_year_built
+                property_type=packet.intent.property_type or "Residential",
+                bedrooms=packet.intent.subject_beds,
+                bathrooms=packet.intent.subject_baths,
+                living_area_sqft=packet.intent.subject_sqft,
+                year_built=packet.intent.subject_year_built
             )
         )
         
@@ -544,9 +612,19 @@ async def ui_generate(request: Request, notes: str = Form(...)):
         
         writer = ReportWriter(state.llm_client)
         narrative = writer.generate(report)
-        report_html = render_html_report(report, narrative)
         
-        return templates.TemplateResponse("ui_report.html", {"request": request, "report_html": report_html})
+        # We use ui_report.html which wraps report_html content
+        # But we need to rename/adjust templates if we want to use base.html
+        # For now, let's render the inner report HTML and pass it to a wrapper that extends base.html
+        
+        # Render the inner content using the standalone template logic or a fragment
+        from renderer.html_report import render_html_report
+        inner_html = render_html_report(report, narrative)
+        
+        return templates.TemplateResponse(
+            "ui_report.html", 
+            {"request": request, "report_html": inner_html}
+        )
 
     except Exception as e:
         logger.exception("UI Generation Failed")
@@ -556,6 +634,43 @@ async def ui_generate(request: Request, notes: str = Form(...)):
         )
     finally:
         state.audit_log.end_correlation()
+
+
+async def _execute_search_flow(intent: IntentIR, session_id: str) -> ReviewPacket:
+    """Helper to run the search pipeline logic."""
+    query_plan = QueryPlanBuilder.from_intent(intent)
+    result = state.connector.search(query_plan, max_tier=FieldTier.SAFE)
+    
+    # Ranking Logic (Duplicated from search endpoints - should refactor to service, but okay for now)
+    distances = {r.get("ListingId"): 0.5 for r in result.records} # Mock
+    dates = {r.get("ListingId"): 30 for r in result.records} # Mock
+    
+    subject_data = {
+        "LivingArea": intent.subject_sqft,
+        "BedroomsTotal": intent.subject_beds,
+        "BathroomsTotalInteger": intent.subject_baths,
+        "YearBuilt": intent.subject_year_built,
+    }
+    
+    ranked = rank_comparables(
+        subject=subject_data,
+        comps=[r.raw_data for r in result.records],
+        distances=distances,
+        sale_dates=dates,
+        limit=200
+    )
+    
+    candidates = _construct_comp_properties(subject_data, ranked, state.connector.source_name)
+    selected_ids = [c.listing_id for c in candidates[:settings.max_selected_comps]]
+    preview = _calculate_analytics(candidates[:settings.max_selected_comps])
+    
+    return ReviewPacket(
+        session_id=session_id,
+        intent=intent,
+        candidates=candidates,
+        selected_listing_ids=selected_ids,
+        analytics_preview=preview
+    )
 
 
 @app.post("/parse-notes", response_model=ParseNotesResponse)

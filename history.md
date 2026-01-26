@@ -1,5 +1,48 @@
 # CMA Compiler History
 
+## 2026-01-25: Review UI & Standard Layout
+
+### Added
+- **Review UI**: Implemented `renderer/templates/review.html` allowing agents to:
+  - View ranked candidates with explicit "Why this comp" reasons.
+  - Review score breakdowns (e.g., "95% match").
+  - Toggle candidates for inclusion/exclusion.
+  - Modify search assumptions (Radius, Max Age) and re-run search.
+- **Base Template**: Created `renderer/templates/base.html` to enforce consistent branding and sticky disclaimer footers.
+- **Disclaimer System**: Added hardcoded "Informational only; not an appraisal" banner to every page footer and report header `renderer/templates/ui_report.html`.
+
+### Changed
+- **UI Routes**: Updated `app/main.py` with `POST /ui/search`, `/ui/update-criteria`, and `/ui/generate` to power the full interactive workflow.
+- **Template Inheritance**: Refactored `index.html` and `ui_report.html` to extend `base.html`, ensuring standardized layout.
+
+### Verified
+- **Rendering**: Added `tests/test_ui_rendering.py` confirming disclaimer presence and correct template composition on all screens.
+
+---
+
+## 2026-01-25: Deterministic Ranking & Review Workflow
+
+### Added
+- **Human-in-the-Loop Review**: Implemented `ReviewPacket` and API workflow (`/search-comps` returns ranked candidates -> `/select-comps` -> `/generate-report`).
+- **Deterministic Ranking**: `analytics/ranking.py` now uses weighted multi-factor scoring (location, size, rooms, age, recency) instead of opaque similarity.
+- **Selection Reasons**: Ranking engine generates explicit, fact-based bullet points (e.g., "Exact bedroom match", "Recent sale") for every candidate.
+- **Provenance Tracking**: `CompProperty` schema now tracks `data_source`, `data_timestamp`, and `score_breakdown`.
+- **Review Events**: Added `REVIEW_STARTED`, `ASSUMPTIONS_MODIFIED`, and `REVIEW_COMPLETED` to audit log.
+
+### Changed
+- **API Response**: `POST /search-comps` now returns a `ReviewPacket` containing the ranked `candidates` list and `analytics_preview`, enabling the frontend to build a review screen.
+- **Ranking Logic**: Replaced placeholder similarity scoring with `calculate_similarity_score` returning granular `ScoreBreakdown`.
+- **Documentation**: Consolidated `next.md` and `NEXT.md` into a single canonical roadmap.
+
+### Fixed
+- **Candidate Ordering**: Comps are now strictly ordered by their calculated similarity score.
+
+### Tests
+- **New Verification**: Added `tests/test_api_review_workflow.py` to verify the full modify-review-generate cycle.
+- **Passing**: 59/59 passing (including new API workflow tests).
+
+---
+
 ## 2026-01-25: Web UI and Runtime Fixes
 
 ### Added

@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}Review Candidates - CMA Compiler{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+
+    <!-- Top Bar -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Review Candidates</h1>
+            <p class="text-sm text-gray-500">Select properties to include in the final report.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <div class="bg-indigo-50 px-3 py-1 rounded text-xs font-medium text-indigo-700">
+                Found {{ total_found }} listings
+            </div>
+            {% if was_capped %}
+            <div class="bg-yellow-50 px-3 py-1 rounded text-xs font-medium text-yellow-700">
+                Capped at 200
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+
+        <!-- Sidebar: Criteria / Assumptions -->
+        <div class="lg:col-span-1 space-y-6">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Subject Property</h2>
+                <div class="space-y-3 text-sm">
+                    <div>
+                        <span class="block text-gray-500 text-xs">Address</span>
+                        <span class="font-medium truncate block" title="{{ packet.intent.subject_address }}">
+                            {{ packet.intent.subject_address or 'Unknown St' }}
+                        </span>
+                        <span class="text-gray-600">{{ packet.intent.subject_city }}, {{ packet.intent.subject_state
+                            }}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <span class="block text-gray-500 text-xs">Beds</span>
+                            <span class="font-medium">{{ packet.intent.subject_beds }}</span>
+                        </div>
+                        <div>
+                            <span class="block text-gray-500 text-xs">Baths</span>
+                            <span class="font-medium">{{ packet.intent.subject_baths }}</span>
+                        </div>
+                        <div>
+                            <span class="block text-gray-500 text-xs">SqFt</span>
+                            <span class="font-medium">{{ packet.intent.subject_sqft }}</span>
+                        </div>
+                        <div>
+                            <span class="block text-gray-500 text-xs">Year</span>
+                            <span class="font-medium">{{ packet.intent.subject_year_built }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Assumptions Form -->
+            <form action="/ui/update-criteria" method="POST"
+                class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <input type="hidden" name="session_id" value="{{ packet.session_id }}">
+                <h2
+                    class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4 flex items-center justify-between">
+                    Search Rules
+                    <button type="submit" class="text-indigo-600 text-xs hover:underline">Update</button>
+                </h2>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Search Radius (miles)</label>
+                        <input type="number" step="0.1" name="radius"
+                            value="{{ packet.intent.search_radius_miles or 1.0 }}"
+                            class="block w-full rounded border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Max Age (years)</label>
+                        <input type="number" name="max_age" value="{{ packet.intent.max_age_years or 10 }}"
+                            class="block w-full rounded border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                    <!-- Hidden fields to preserve state -->
+                    <input type="hidden" name="intent_json" value='{{ packet.intent.model_dump_json() }}'>
+                </div>
+            </form>
+
+            <!-- Generate Button (Sidebar on Desktop) -->
+            <button form="selection-form" type="submit"
+                class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded shadow-sm transition-colors text-sm">
+                Generate Report
+            </button>
+        </div>
+
+        <!-- Main Content: Candidates Table -->
+        <div class="lg:col-span-3">
+            <form id="selection-form" action="/ui/generate" method="POST">
+                <input type="hidden" name="session_id" value="{{ packet.session_id }}">
+
+                <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+                                    Include
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Property Details
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Price / Sold
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Score
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for comp in packet.candidates %}
+                            <tr
+                                class="hover:bg-gray-50 transition-colors {{ 'bg-indigo-50/30' if comp.listing_id in packet.selected_listing_ids else '' }}">
+                                <td class="px-6 py-4 whitespace-nowrap align-top pt-5">
+                                    <input type="checkbox" name="selected_ids" value="{{ comp.listing_id }}"
+                                        {{ 'checked' if comp.listing_id in packet.selected_listing_ids else '' }}
+                                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer">
+                                </td>
+                                <td class="px-6 py-4 align-top">
+                                    <div class="flex items-center">
+                                        <div class="ml-0">
+                                            <div class="text-sm font-medium text-gray-900">{{ comp.address.street }}
+                                            </div>
+                                            <div class="text-sm text-gray-500">{{ comp.address.city }}, {{
+                                                comp.address.state }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 text-xs text-gray-500 space-x-2">
+                                        <span>{{ comp.characteristics.bedrooms }}bd</span>
+                                        <span>&bull;</span>
+                                        <span>{{ comp.characteristics.bathrooms }}ba</span>
+                                        <span>&bull;</span>
+                                        <span>{{ "{:,}".format(comp.characteristics.living_area_sqft) }} sqft</span>
+                                        <span>&bull;</span>
+                                        <span>{{ comp.characteristics.year_built }}</span>
+                                    </div>
+                                    <div class="mt-2 space-y-1">
+                                        {% for reason in comp.selection_reasons %}
+                                        <span
+                                            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                            {{ reason }}
+                                        </span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500 align-top">
+                                    <div class="text-sm font-bold text-gray-900">${{
+                                        "{:,.0f}".format(comp.sale_info.close_price) }}</div>
+                                    <div class="text-xs text-gray-500">{{ comp.sale_info.close_date.strftime('%b %d,
+                                        %Y') }}</div>
+                                    <div class="text-xs text-gray-400 mt-1">{{ "{:.1f}".format(comp.distance_miles) }}
+                                        mi away</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500 align-top">
+                                    <div class="text-lg font-bold text-indigo-600">{{
+                                        "{:.0f}".format(comp.similarity_score) }}%</div>
+                                    <div class="text-xs text-gray-400">match</div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
