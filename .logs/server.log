@@ -1092,3 +1092,233 @@ INFO:llm.client:Initializing LLM client: ollama
 INFO:app.main:LLM client initialized: ollama
 INFO:app.main:CSV connector initialized: data/mock_listings.csv
 INFO:     Application startup complete.
+INFO:     Will watch for changes in these directories: ['/home/aaron/code/cma-report-tool']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [118830] using WatchFiles
+INFO:     Started server process [118833]
+INFO:     Waiting for application startup.
+INFO:app.main:Starting CMA Compiler...
+INFO:llm.client:Initializing LLM client: ollama
+INFO:app.main:LLM client initialized: ollama
+INFO:app.main:CSV connector initialized: data/mock_listings.csv
+INFO:     Application startup complete.
+INFO:     127.0.0.1:57088 - "GET /ui/ HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:57088 - "GET /ui HTTP/1.1" 200 OK
+INFO:audit.audit_log:AUDIT: notes_received | dee76593-b641-4b2b-8113-0aa191deacdc | {'notes_length': 428, 'session_id': 'a0a694b1-788a-4e6f-8c20-fcd8b3ad3baf'}
+ERROR:llm.notes_parser:LLM call failed: timed out
+ERROR:app.main:UI Search Failed
+Traceback (most recent call last):
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 67, in map_httpcore_exceptions
+    yield
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 231, in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_sync/http11.py", line 136, in handle_request
+    raise exc
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_sync/http11.py", line 106, in handle_request
+    ) = self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_sync/http11.py", line 177, in _receive_response_headers
+    event = self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_sync/http11.py", line 217, in _receive_event
+    data = self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py", line 126, in read
+    with map_exceptions(exc_map):
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout: timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/aaron/code/cma-report-tool/llm/notes_parser.py", line 97, in parse
+    response = client.complete(
+               ^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/llm/client.py", line 242, in complete
+    response = httpx.post(
+               ^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_api.py", line 317, in post
+    return request(
+           ^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_api.py", line 104, in request
+    return client.request(
+           ^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_client.py", line 828, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_client.py", line 915, in send
+    response = self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_client.py", line 943, in _send_handling_auth
+    response = self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_client.py", line 980, in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1016, in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 230, in handle_request
+    with map_httpcore_exceptions():
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 84, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout: timed out
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/aaron/code/cma-report-tool/app/main.py", line 524, in ui_search
+    intent = parser.parse(notes)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/llm/notes_parser.py", line 105, in parse
+    raise NotesParseError(f"LLM call failed: {e}")
+llm.notes_parser.NotesParseError: LLM call failed: timed out
+INFO:     127.0.0.1:60846 - "POST /ui/search HTTP/1.1" 200 OK
+INFO:audit.audit_log:AUDIT: notes_received | a7d47826-bd00-4618-a456-7462d0985777 | {'notes_length': 428, 'session_id': 'ee8758e8-70fc-4b7b-ab2a-a3b2bdab751e'}
+INFO:httpx:HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+INFO:llm.notes_parser:Successfully parsed notes into IntentIR: Denver, CO
+INFO:audit.audit_log:AUDIT: intent_parsed | a7d47826-bd00-4618-a456-7462d0985777 | {'city': 'Denver'}
+INFO:     127.0.0.1:56108 - "POST /ui/search HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+INFO:llm.report_writer:Report generated and verified successfully
+INFO:     127.0.0.1:60472 - "POST /ui/generate HTTP/1.1" 200 OK
+ERROR:llm.report_writer:Report generation failed: timed out
+INFO:     127.0.0.1:55810 - "POST /ui/download-pdf HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 67, in map_httpcore_exceptions
+    yield
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 231, in handle_request
+    resp = self._pool.handle_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_sync/connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_sync/connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_sync/http11.py", line 136, in handle_request
+    raise exc
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_sync/http11.py", line 106, in handle_request
+    ) = self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_sync/http11.py", line 177, in _receive_response_headers
+    event = self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_sync/http11.py", line 217, in _receive_event
+    data = self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_backends/sync.py", line 126, in read
+    with map_exceptions(exc_map):
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout: timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/aaron/code/cma-report-tool/llm/report_writer.py", line 229, in generate
+    response = client.complete(
+               ^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/llm/client.py", line 242, in complete
+    response = httpx.post(
+               ^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_api.py", line 317, in post
+    return request(
+           ^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_api.py", line 104, in request
+    return client.request(
+           ^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_client.py", line 828, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_client.py", line 915, in send
+    response = self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_client.py", line 943, in _send_handling_auth
+    response = self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_client.py", line 980, in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1016, in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 230, in handle_request
+    with map_httpcore_exceptions():
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 84, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout: timed out
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 419, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/fastapi/applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/starlette/applications.py", line 123, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/starlette/routing.py", line 762, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/starlette/routing.py", line 782, in app
+    await route.handle(scope, receive, send)
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/starlette/routing.py", line 297, in handle
+    await self.app(scope, receive, send)
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/starlette/routing.py", line 77, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/starlette/routing.py", line 72, in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 299, in app
+    raise e
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 294, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/app/main.py", line 739, in ui_download_pdf
+    narrative = writer.generate(report)
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaron/code/cma-report-tool/llm/report_writer.py", line 254, in generate
+    raise ReportGenerationError(f"LLM call failed: {e}")
+llm.report_writer.ReportGenerationError: LLM call failed: timed out
