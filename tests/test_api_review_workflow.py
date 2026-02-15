@@ -17,6 +17,7 @@ from app.main import app, state, _load_sample_data
 from connectors.reso_mock_connector import InMemoryRESOConnector, MockRESOServer
 from llm.client import MockLLMClient
 from audit.audit_log import AuditLog
+from app.persistence import MemorySessionStore
 
 client = TestClient(app)
 
@@ -49,7 +50,9 @@ def setup_state():
     state.llm_client._default_intent_response = intent_json
     state.llm_client.set_response("Denver", intent_json)
     
-    state.sessions = {}
+    state.llm_client.set_response("Denver", intent_json)
+    
+    state.session_store = MemorySessionStore()
     yield
 
 def test_full_review_flow():

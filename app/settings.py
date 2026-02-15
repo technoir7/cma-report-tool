@@ -134,6 +134,10 @@ class Settings(BaseSettings):
     debug: bool = False
     log_level: str = "INFO"
     
+    # Persistence Configuration
+    redis_url: str = Field(default="redis://localhost:6379/0")
+    session_ttl_seconds: int = Field(default=86400)  # 24 hours
+    
     # LLM Provider Configuration
     # Default: Ollama (no API key required)
     llm_provider: LLMProvider = LLMProvider.OLLAMA

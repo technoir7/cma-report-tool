@@ -19,7 +19,10 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Any
+from typing import Any
 from uuid import uuid4
+
+from app.context import get_run_id
 
 
 class ProvenanceType(str, Enum):
@@ -73,6 +76,7 @@ class ProvenanceRecord:
     # Metadata
     retrieved_at: datetime = field(default_factory=datetime.utcnow)
     description: str | None = None
+    run_id: str | None = None
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -94,7 +98,8 @@ class ProvenanceRecord:
             "aggregation_method": self.aggregation_method,
             "aggregation_count": self.aggregation_count,
             "retrieved_at": self.retrieved_at.isoformat(),
-            "description": self.description
+            "description": self.description,
+            "run_id": self.run_id
         }
 
 
@@ -152,7 +157,9 @@ class ProvenanceTracker:
             source_record_id=record_id,
             source_field=field,
             source_backend=backend,
-            description=description
+            source_backend=backend,
+            description=description,
+            run_id=get_run_id()
         )
         
         self._store(record)
@@ -182,7 +189,9 @@ class ProvenanceTracker:
             provenance_type=ProvenanceType.COMPUTED,
             computation=computation,
             input_provenance_ids=inputs,
-            description=description
+            input_provenance_ids=inputs,
+            description=description,
+            run_id=get_run_id()
         )
         
         self._store(record)
@@ -215,7 +224,9 @@ class ProvenanceTracker:
             aggregation_method=method,
             input_provenance_ids=inputs,
             aggregation_count=count,
-            description=description
+            aggregation_count=count,
+            description=description,
+            run_id=get_run_id()
         )
         
         self._store(record)
@@ -239,7 +250,9 @@ class ProvenanceTracker:
         record = ProvenanceRecord(
             value=value,
             provenance_type=ProvenanceType.USER_INPUT,
-            description=description
+            provenance_type=ProvenanceType.USER_INPUT,
+            description=description,
+            run_id=get_run_id()
         )
         
         self._store(record)

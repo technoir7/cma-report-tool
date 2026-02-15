@@ -27,6 +27,9 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
+from app.context import set_run_id, reset_run_id, get_run_id
+
+from app.persistence import SessionStore, RedisSessionStore, MemorySessionStore
 from app.settings import settings, DataSource
 from audit.audit_log import AuditLog, AuditAction, set_audit_log, audit
 from audit.provenance import ProvenanceTracker
@@ -51,8 +54,21 @@ from analytics.outliers import detect_all_outliers
 from renderer.html_report import render_html_report
 
 # Configure logging
-logging.basicConfig(level=settings.log_level)
+class RunIdFilter(logging.Filter):
+    """Filter to inject run_id into log records."""
+    def filter(self, record):
+        record.run_id = get_run_id() or "N/A"
+        return True
+
+logging.basicConfig(
+    level=settings.log_level,
+    format='%(asctime)s [%(levelname)s] [%(run_id)s] %(name)s: %(message)s'
+)
 logger = logging.getLogger(__name__)
+logger.addFilter(RunIdFilter())
+# Apply filter to root logger/handlers to ensure all logs get it
+for handler in logging.getLogger().handlers:
+    handler.addFilter(RunIdFilter())
 
 
 # ============================================================================
@@ -67,12 +83,31 @@ class AppState:
         self.llm_client: LLMClient | None = None
         self.audit_log: AuditLog | None = None
         self.provenance: ProvenanceTracker | None = None
-        # In-memory storage for workflow state
-        self.sessions: dict[str, dict[str, Any]] = {}
+        # Persistence abstraction
+        self.session_store: SessionStore | None = None
 
 
 state = AppState()
 templates = Jinja2Templates(directory="renderer/templates")
+
+app = FastAPI(title="CMA Compiler", version="0.1.0")
+
+
+@app.middleware("http")
+async def run_id_middleware(request: Request, call_next):
+    """Middleware to generate and set run_id for every request."""
+    run_id = str(uuid4())
+    set_run_id(run_id)
+    
+    # Add to request state for access in endpoints if needed
+    request.state.run_id = run_id
+    
+    try:
+        response = await call_next(request)
+        response.headers["X-Run-ID"] = run_id
+        return response
+    finally:
+        reset_run_id()
 
 
 @asynccontextmanager
@@ -106,6 +141,18 @@ async def lifespan(app: FastAPI):
         state.connector = InMemoryRESOConnector(MockRESOServer())
         _load_sample_data(state.connector)
         logger.info("In-memory mock connector initialized")
+    
+    # Initialize session store
+    if settings.redis_url and "redis" in settings.redis_url:
+        try:
+            state.session_store = RedisSessionStore(settings.redis_url)
+            logger.info("Redis session store initialized")
+        except Exception as e:
+            logger.error(f"Failed to connect to Redis: {e}. Falling back to memory.")
+            state.session_store = MemorySessionStore()
+    else:
+        state.session_store = MemorySessionStore()
+        logger.info("In-memory session store initialized")
     
     yield
     
@@ -528,11 +575,13 @@ async def ui_search(request: Request, notes: str = Form(...)):
         packet = await _execute_search_flow(intent, session_id)
         
         # 3. Store in Session
-        state.sessions[session_id] = {
-            "intent": intent,
-            "review_packet": packet,
-            "created_at": datetime.utcnow()
+        # 3. Store in Session
+        session_data = {
+            "intent": intent.model_dump(),
+            "review_packet": packet.model_dump(),
+            "created_at": datetime.utcnow().isoformat()
         }
+        await state.session_store.save(session_id, session_data, ttl=settings.session_ttl_seconds)
         
         return templates.TemplateResponse(
             "review.html", 
@@ -597,8 +646,14 @@ async def ui_update_criteria(
         packet = await _execute_search_flow(intent, session_id)
         
         # Update session
-        state.sessions[session_id]["intent"] = intent
-        state.sessions[session_id]["review_packet"] = packet
+        # Update session
+        session_data = await state.session_store.get(session_id)
+        if not session_data:
+             raise HTTPException(status_code=404, detail="Session expired")
+             
+        session_data["intent"] = intent.model_dump()
+        session_data["review_packet"] = packet.model_dump()
+        await state.session_store.save(session_id, session_data, ttl=settings.session_ttl_seconds)
         
         return templates.TemplateResponse(
             "review.html", 
@@ -627,11 +682,11 @@ async def ui_generate(
     """
     correlation_id = state.audit_log.start_correlation()
     try:
-        session = state.sessions.get(session_id)
-        if not session or "review_packet" not in session:
+        session_data = await state.session_store.get(session_id)
+        if not session_data or "review_packet" not in session_data:
             return templates.TemplateResponse("index.html", {"request": request, "error": "Session expired"})
             
-        packet: ReviewPacket = session["review_packet"]
+        packet = ReviewPacket(**session_data["review_packet"])
         
         # Update packet selection
         packet.selected_listing_ids = selected_ids
@@ -700,11 +755,11 @@ async def ui_download_pdf(
     """
     Generate and download PDF report.
     """
-    session = state.sessions.get(session_id)
-    if not session or "review_packet" not in session:
+    session_data = await state.session_store.get(session_id)
+    if not session_data or "review_packet" not in session_data:
         raise HTTPException(status_code=400, detail="Session expired")
         
-    packet: ReviewPacket = session["review_packet"]
+    packet = ReviewPacket(**session_data["review_packet"])
     selected_ids = packet.selected_listing_ids
     
     # Re-calculate report (ensure fresh state)
@@ -713,7 +768,7 @@ async def ui_download_pdf(
     
     subject = SubjectProperty(
         address=AddressInfo(
-            street=str(packet.intent.subject_address) or "",
+            street=str(packet.intent.subject_address) if packet.intent.subject_address else "",
             city=str(packet.intent.subject_city),
             state=str(packet.intent.subject_state),
             zip_code=str(packet.intent.subject_zip)
@@ -723,8 +778,9 @@ async def ui_download_pdf(
             bedrooms=packet.intent.subject_beds,
             bathrooms=packet.intent.subject_baths,
             living_area_sqft=packet.intent.subject_sqft,
+            lot_size_sqft=packet.intent.subject_lot_sqft or 5000,
             year_built=packet.intent.subject_year_built
-        )
+       )
     )
     
     report = ReportJSON(
@@ -810,10 +866,11 @@ async def parse_notes(request: ParseNotesRequest):
         
         audit(AuditAction.INTENT_PARSED, {"city": intent.subject_city, "state": intent.subject_state})
         
-        state.sessions[session_id] = {
-            "intent": intent,
-            "created_at": datetime.utcnow()
+        session_data = {
+            "intent": intent.model_dump(),
+            "created_at": datetime.utcnow().isoformat()
         }
+        await state.session_store.save(session_id, session_data, ttl=settings.session_ttl_seconds)
         
         return ParseNotesResponse(
             success=True,
@@ -837,23 +894,26 @@ async def search_comps(request: SearchCompsRequest):
     session_id = request.session_id
     if not session_id:
         session_id = str(uuid4())
-        state.sessions[session_id] = {"created_at": datetime.utcnow()} # Init session
-        
-    session = state.sessions.get(session_id)
-    if not session:
-         # If ID provided but not found, act as if new or error?
-         # User said "If missing... return documented way to create one".
-         # Let's support creation if missing, but if provided and invalid, maybe error?
-         # But safer to just re-init for now or fail if explicit ID is bad.
-         # Actually let's assume if client provides ID they expect it to exist.
-         if request.session_id:
-             raise HTTPException(status_code=400, detail="Session expired or invalid")
-         else:
-             # Should have been created above
-             state.sessions[session_id] = {"created_at": datetime.utcnow()}
-             session = state.sessions[session_id]
+        # We will init session_data later if needed
 
-    intent = request.intent or (session.get("intent") if session else None)
+        
+    session_data = None
+    if session_id:
+        session_data = await state.session_store.get(session_id)
+
+    if not session_data and request.session_id:
+         # Client provided ID but not found
+         raise HTTPException(status_code=400, detail="Session expired or invalid")
+    
+    if not session_id:
+        session_id = str(uuid4())
+        session_data = {"created_at": datetime.utcnow().isoformat()}
+
+    # Check intent source
+    # If passed in request, use it. Else check session.
+    intent = request.intent
+    if not intent and session_data and "intent" in session_data:
+        intent = IntentIR(**session_data["intent"])
     
     if not intent:
         raise HTTPException(
@@ -868,8 +928,13 @@ async def search_comps(request: SearchCompsRequest):
         packet = await _execute_search_flow(intent, session_id)
         
         # Update session
-        state.sessions[session_id]["intent"] = intent
-        state.sessions[session_id]["review_packet"] = packet
+        # Update session
+        if not session_data:
+            session_data = {}
+            
+        session_data["intent"] = intent.model_dump()
+        session_data["review_packet"] = packet.model_dump()
+        await state.session_store.save(session_id, session_data, ttl=settings.session_ttl_seconds)
         
         return SearchCompsResponse(
             success=True,
@@ -893,14 +958,14 @@ async def select_comps(request: SelectCompsRequest):
     Select specific comparables for the report.
     Updates the session's ReviewPacket.
     """
-    session = state.sessions.get(request.session_id)
-    packet = session.get("review_packet") if session else None
-    
-    if not packet:
+    session_data = await state.session_store.get(request.session_id)
+    if not session_data or "review_packet" not in session_data:
         raise HTTPException(
             status_code=400,
             detail="No review packet found. Call /search-comps first."
         )
+        
+    packet = ReviewPacket(**session_data["review_packet"])
     
     # Enforce hard cap
     if len(request.selected_listing_ids) > MAX_SELECTED_COMPS:
@@ -923,7 +988,8 @@ async def select_comps(request: SelectCompsRequest):
     selected_objs = [c for c in packet.candidates if c.listing_id in request.selected_listing_ids]
     packet.analytics_preview = _calculate_analytics(selected_objs)
     
-    session["review_packet"] = packet
+    session_data["review_packet"] = packet.model_dump()
+    await state.session_store.save(request.session_id, session_data, ttl=settings.session_ttl_seconds)
     
     audit(
         AuditAction.COMPS_SELECTED,
@@ -945,11 +1011,11 @@ async def generate_report(request: GenerateReportRequest):
     """
     Generate the CMA report using the finalized ReviewPacket.
     """
-    session = state.sessions.get(request.session_id)
-    packet: ReviewPacket = session.get("review_packet") if session else None
-    
-    if not packet:
+    session_data = await state.session_store.get(request.session_id)
+    if not session_data or "review_packet" not in session_data:
         raise HTTPException(status_code=400, detail="Review packet not found")
+        
+    packet = ReviewPacket(**session_data["review_packet"])
     
     selected_comps = [c for c in packet.candidates if c.listing_id in packet.selected_listing_ids]
     
@@ -973,7 +1039,7 @@ async def generate_report(request: GenerateReportRequest):
                 bedrooms=intent.subject_beds,
                 bathrooms=intent.subject_baths,
                 living_area_sqft=intent.subject_sqft,
-                lot_size_sqft=intent.subject_lot_sqft,
+                lot_size_sqft=intent.subject_lot_sqft or 5000, # Validation fallback
                 year_built=intent.subject_year_built
             )
         )

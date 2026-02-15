@@ -31,3 +31,7 @@ python-multipart==0.0.9
 # PDF Generation
 weasyprint==62.1
 pydyf<0.12
+
+# Persistence
+redis>=5.0.0
+types-redis

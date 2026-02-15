@@ -18,6 +18,9 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from app.context import get_run_id
+from app.version import AppVersion
+
 logger = logging.getLogger(__name__)
 
 
@@ -62,6 +65,17 @@ class AuditAction(str, Enum):
     REVIEW_COMPLETED = "review_completed"
     ASSUMPTIONS_MODIFIED = "assumptions_modified"
 
+    # New Roadmap Actions
+    PARSE = "parse"
+    BUILD_QUERY = "build_query"
+    FETCH_LISTINGS = "fetch_listings"
+    RANK = "rank"
+    SELECT = "select"
+    CALCULATE = "calculate"
+    GENERATE_NARRATIVE = "generate_narrative"
+    VERIFY = "verify"
+    RENDER = "render"
+
 
 @dataclass
 class AuditEntry:
@@ -73,6 +87,8 @@ class AuditEntry:
     details: dict[str, Any] = field(default_factory=dict)
     user_id: str | None = None
     session_id: str | None = None
+    run_id: str | None = None
+    app_versions: dict[str, str] = field(default_factory=dict)
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -82,7 +98,9 @@ class AuditEntry:
             "correlation_id": self.correlation_id,
             "details": self.details,
             "user_id": self.user_id,
-            "session_id": self.session_id
+            "session_id": self.session_id,
+            "run_id": self.run_id,
+            "app_versions": self.app_versions,
         }
     
     def to_json(self) -> str:
@@ -160,7 +178,9 @@ class AuditLog:
             correlation_id=self._correlation_id or str(uuid4()),
             details=details or {},
             user_id=user_id,
-            session_id=self.session_id
+            session_id=self.session_id,
+            run_id=get_run_id(),
+            app_versions={v.name: v.value for v in AppVersion}
         )
         
         self._entries.append(entry)
